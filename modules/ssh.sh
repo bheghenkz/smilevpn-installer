@@ -27,7 +27,11 @@ chmod 600 /etc/ssh/sshd_config
 cp config/dropbear.conf /etc/default/dropbear
 
 # Install WebSocket SSH
-cp bin/ws /usr/bin/ws
+systemctl stop ws 2>/dev/null || true
+pkill -f '/usr/bin/ws' 2>/dev/null || true
+sleep 1
+rm -f /usr/bin/ws
+install -m 755 bin/ws /usr/bin/ws
 cp config/tun.conf /usr/bin/tun.conf
 cp config/ws.service /etc/systemd/system/ws.service
 
