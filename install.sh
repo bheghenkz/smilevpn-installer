@@ -1,0 +1,279 @@
+#!/bin/bash
+set -e
+
+export DEBIAN_FRONTEND=noninteractive
+
+SMILEVPN_STATUS_FILE="/root/smilevpn-status"
+echo "RUNNING" > "$SMILEVPN_STATUS_FILE"
+trap 'echo "FAILED" > "$SMILEVPN_STATUS_FILE"' ERR
+
+DOMAIN=$1
+CF_API_TOKEN="${CF_API_TOKEN:-$2}"
+
+if [ -f ".env" ]; then
+    set -a
+    . ./.env
+    set +a
+fi
+
+if [ -z "$DOMAIN" ]; then
+    echo "Usage: bash install.sh domain.com"
+    exit 1
+fi
+
+echo "🚀 Installing SmileVPN on $DOMAIN"
+
+if ! command -v apt >/dev/null 2>&1; then
+    echo "❌ Unsupported OS. Installer ini untuk Debian/Ubuntu VPS."
+    exit 1
+fi
+
+echo "🧹 Removing conflicting web server..."
+systemctl stop apache2 2>/dev/null || true
+systemctl disable apache2 2>/dev/null || true
+apt-get remove --purge -y apache2 apache2-bin apache2-data apache2-utils 2>/dev/null || true
+
+echo "📦 Installing packages..."
+apt-get update -y
+apt-get install -y curl wget unzip nginx ca-certificates socat cron openssl
+
+echo "📁 Setup folders..."
+mkdir -p /etc/xray
+mkdir -p /etc/xray/ssl
+mkdir -p /var/log/xray
+mkdir -p /var/www/html
+
+echo "$DOMAIN" > /etc/xray/domain
+touch /var/log/xray/access.log
+touch /var/log/xray/error.log
+
+echo "☁️ Installing Cloudflare Origin SSL..."
+
+if [ -f "ssl/fullchain.pem" ] && [ -f "ssl/privkey.pem" ]; then
+    echo "✅ Using local Cloudflare SSL files..."
+    cp ssl/fullchain.pem /etc/xray/ssl/fullchain.pem
+    cp ssl/privkey.pem /etc/xray/ssl/privkey.pem
+else
+    echo "🔑 Local SSL not found, generating via Cloudflare API..."
+
+    if [ -z "$CF_API_TOKEN" ]; then
+        read -rp "Cloudflare API Token: " CF_API_TOKEN
+    fi
+
+    ROOT_DOMAIN=$(echo "$DOMAIN" | awk -F. '{print $(NF-1)"."$NF}')
+
+    openssl genrsa -out /etc/xray/ssl/privkey.pem 2048
+    openssl req -new -key /etc/xray/ssl/privkey.pem -out /tmp/smilevpn.csr -subj "/CN=$DOMAIN"
+
+    CSR_JSON=$(python3 - <<PY2
+import json
+csr=open("/tmp/smilevpn.csr").read()
+print(json.dumps(csr))
+PY2
+)
+
+    RESPONSE=$(curl -sS -X POST "https://api.cloudflare.com/client/v4/certificates"       -H "Authorization: Bearer $CF_API_TOKEN"       -H "Content-Type: application/json"       --data "{
+        \"hostnames\": [\"$DOMAIN\"],
+        \"requested_validity\": 5475,
+        \"request_type\": \"origin-rsa\",
+        \"csr\": $CSR_JSON
+      }")
+
+    echo "$RESPONSE" > /tmp/smilevpn-cf-cert.json
+
+    python3 - <<PY3
+import json, sys
+data=json.load(open("/tmp/smilevpn-cf-cert.json"))
+if not data.get("success"):
+    print("Cloudflare API error:")
+    print(json.dumps(data, indent=2))
+    sys.exit(1)
+cert=data["result"]["certificate"]
+open("/etc/xray/ssl/fullchain.pem","w").write(cert)
+PY3
+fi
+
+chmod 644 /etc/xray/ssl/fullchain.pem
+chmod 600 /etc/xray/ssl/privkey.pem
+
+echo "✅ Cloudflare Origin SSL installed"
+
+echo "⚙️ Installing Xray Core..."
+export TERM=xterm
+
+if [ ! -f /etc/systemd/system/xray.service ]; then
+    rm -f /usr/local/bin/xray
+    rm -rf /etc/systemd/system/xray.service.d
+fi
+
+bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
+
+echo "⚙️ Installing Xray config..."
+cp config/xray.json /etc/xray/config.json
+cp config/xray.json /usr/local/etc/xray/config.json
+
+sed -i "s/__VLESS_SEED__/$(cat /proc/sys/kernel/random/uuid)/g" /etc/xray/config.json
+sed -i "s/__VMESS_SEED__/$(cat /proc/sys/kernel/random/uuid)/g" /etc/xray/config.json
+sed -i "s/__TROJAN_SEED__/$(cat /proc/sys/kernel/random/uuid)/g" /etc/xray/config.json
+sed -i "s/__VLESS_GRPC_SEED__/$(cat /proc/sys/kernel/random/uuid)/g" /etc/xray/config.json
+sed -i "s/__VMESS_GRPC_SEED__/$(cat /proc/sys/kernel/random/uuid)/g" /etc/xray/config.json
+sed -i "s/__TROJAN_GRPC_SEED__/$(cat /proc/sys/kernel/random/uuid)/g" /etc/xray/config.json
+
+cp /etc/xray/config.json /usr/local/etc/xray/config.json
+
+echo "🌐 Installing Nginx config..."
+sed "s/DOMAIN/$DOMAIN/g" config/nginx.conf > /etc/nginx/sites-enabled/default
+
+echo "🔓 Opening firewall ports..."
+if command -v ufw >/dev/null 2>&1; then
+    ufw allow 22 || true
+    ufw allow 80 || true
+    ufw allow 443 || true
+fi
+
+
+echo "🛡️ Installing Fail2Ban SSH protection..."
+apt-get install -y fail2ban
+
+cat > /etc/fail2ban/jail.local <<'F2B'
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = 5
+findtime = 600
+bantime = 3600
+backend = systemd
+F2B
+
+systemctl enable fail2ban
+systemctl restart fail2ban
+echo "✅ Fail2Ban SSH protection active"
+
+
+
+echo "🚀 Applying SmileVPN network optimization..."
+cat > /etc/sysctl.d/99-smilevpn-tuning.conf <<'EOF'
+net.core.default_qdisc=fq
+net.ipv4.tcp_congestion_control=bbr
+net.ipv4.tcp_fastopen=3
+net.ipv4.tcp_mtu_probing=1
+net.ipv4.tcp_window_scaling=1
+net.ipv4.tcp_slow_start_after_idle=0
+net.ipv4.tcp_tw_reuse=1
+net.ipv4.ip_local_port_range=10240 65535
+net.core.rmem_max=67108864
+net.core.wmem_max=67108864
+net.ipv4.tcp_rmem=4096 87380 67108864
+net.ipv4.tcp_wmem=4096 65536 67108864
+EOF
+
+sysctl --system || true
+echo "✅ Network optimization active"
+
+
+
+echo "🚀 Applying SmileVPN tunnel limits..."
+cat > /etc/security/limits.d/99-smilevpn.conf <<'EOF'
+* soft nofile 1048576
+* hard nofile 1048576
+root soft nofile 1048576
+root hard nofile 1048576
+EOF
+
+mkdir -p /etc/systemd/system.conf.d
+cat > /etc/systemd/system.conf.d/99-smilevpn.conf <<'EOF'
+[Manager]
+DefaultLimitNOFILE=1048576
+DefaultLimitNPROC=1048576
+EOF
+
+systemctl daemon-reexec || true
+echo "✅ Tunnel limits active"
+
+
+echo "📜 Installing SmileVPN account scripts..."
+mkdir -p /usr/local/sbin/smilevpn
+cp scripts/* /usr/local/sbin/smilevpn/
+chmod +x /usr/local/sbin/smilevpn/*
+
+for f in /usr/local/sbin/smilevpn/*; do
+    name=$(basename "$f")
+    ln -sf "$f" "/usr/local/bin/$name"
+done
+
+hash -r
+echo "✅ Account scripts installed and linked"
+
+echo "⏰ Installing cron jobs..."
+cat > /etc/cron.d/smilevpn <<'CRON'
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+2 0 * * * root /usr/local/sbin/smilevpn/xp >/dev/null 2>&1
+CRON
+chmod 644 /etc/cron.d/smilevpn
+systemctl enable cron
+systemctl restart cron
+echo "✅ Cron jobs installed"
+
+echo "🔐 Installing SSH stack..."
+bash modules/ssh.sh
+
+echo "🚀 Enable services..."
+systemctl daemon-reload
+systemctl enable xray
+systemctl restart xray
+systemctl enable nginx
+nginx -t
+systemctl restart nginx
+
+echo "🚀 Installing UDPGW..."
+
+apt-get install -y git cmake make gcc g++ libssl-dev libnss3-dev libnspr4-dev
+
+rm -rf /tmp/badvpn
+git clone https://github.com/ambrop72/badvpn.git /tmp/badvpn
+mkdir -p /tmp/badvpn/build
+cd /tmp/badvpn/build
+cmake .. -DBUILD_NOTHING_BY_DEFAULT=1 -DBUILD_UDPGW=1
+make -j$(nproc)
+cp udpgw/badvpn-udpgw /usr/bin/badvpn-udpgw
+chmod +x /usr/bin/badvpn-udpgw
+cd /root/smilevpn-installer
+
+cat > /etc/systemd/system/udpgw@.service <<'SERVICE'
+[Unit]
+Description=BadVPN UDPGW on port %i
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/badvpn-udpgw --listen-addr 0.0.0.0:%i --max-clients 1000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+systemctl daemon-reload
+
+for port in 7300 7301 7302
+do
+  systemctl enable udpgw@$port
+  systemctl restart udpgw@$port
+done
+
+if command -v ufw >/dev/null 2>&1; then
+    ufw allow 7300:7302/tcp || true
+    ufw allow 7300:7302/udp || true
+fi
+
+echo "✅ UDPGW ACTIVE (7300-7302)"
+
+echo "SUCCESS" > "$SMILEVPN_STATUS_FILE"
+echo "SMILEVPN_INSTALL_DONE"
+echo "✅ SmileVPN installer DONE"
+echo "DOMAIN=$DOMAIN"
+echo "XRAY=ON"
+echo "NGINX=ON"
+echo "SSL=CLOUDFLARE"

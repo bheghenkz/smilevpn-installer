@@ -1,0 +1,107 @@
+{
+  "log": {
+    "access": "/var/log/xray/access.log",
+    "error": "/var/log/xray/error.log",
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "port": 10001,
+      "listen": "127.0.0.1",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {"id": "__VLESS_SEED__", "email": "seed"}
+          #vless
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "ws",
+        "wsSettings": {"path": "/vless"}
+      }
+    },
+    {
+      "port": 10002,
+      "listen": "127.0.0.1",
+      "protocol": "vmess",
+      "settings": {
+        "clients": [
+          {"id": "__VMESS_SEED__", "alterId": 0, "email": "seed"}
+          #vmess
+        ]
+      },
+      "streamSettings": {
+        "network": "ws",
+        "wsSettings": {"path": "/vmess"}
+      }
+    },
+    {
+      "port": 10003,
+      "listen": "127.0.0.1",
+      "protocol": "trojan",
+      "settings": {
+        "clients": [
+          {"password": "__TROJAN_SEED__", "email": "seed"}
+          #trojanws
+        ]
+      },
+      "streamSettings": {
+        "network": "ws",
+        "wsSettings": {"path": "/trojan-ws"}
+      }
+    },
+    {
+      "port": 10005,
+      "listen": "127.0.0.1",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {"id": "__VLESS_GRPC_SEED__", "email": "seed-grpc"}
+          #vlessgrpc
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "grpc",
+        "grpcSettings": {"serviceName": "vless-grpc"}
+      }
+    },
+    {
+      "port": 10006,
+      "listen": "127.0.0.1",
+      "protocol": "vmess",
+      "settings": {
+        "clients": [
+          {"id": "__VMESS_GRPC_SEED__", "alterId": 0, "email": "seed-grpc"}
+          #vmessgrpc
+        ]
+      },
+      "streamSettings": {
+        "network": "grpc",
+        "grpcSettings": {"serviceName": "vmess-grpc"}
+      }
+    },
+    {
+      "port": 10007,
+      "listen": "127.0.0.1",
+      "protocol": "trojan",
+      "settings": {
+        "clients": [
+          {"password": "__TROJAN_GRPC_SEED__", "email": "seed-grpc"}
+          #trojangrpc
+        ]
+      },
+      "streamSettings": {
+        "network": "grpc",
+        "grpcSettings": {"serviceName": "trojan-grpc"}
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "freedom",
+      "settings": {}
+    }
+  ]
+}
