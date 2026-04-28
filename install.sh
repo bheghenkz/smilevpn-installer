@@ -238,8 +238,11 @@ mkdir -p /tmp/badvpn/build
 cd /tmp/badvpn/build
 cmake .. -DBUILD_NOTHING_BY_DEFAULT=1 -DBUILD_UDPGW=1
 make -j$(nproc)
-cp udpgw/badvpn-udpgw /usr/bin/badvpn-udpgw
-chmod +x /usr/bin/badvpn-udpgw
+systemctl stop 'udpgw@*' 2>/dev/null || true
+pkill -f badvpn-udpgw 2>/dev/null || true
+sleep 1
+rm -f /usr/bin/badvpn-udpgw
+install -m 755 udpgw/badvpn-udpgw /usr/bin/badvpn-udpgw
 cd /root/smilevpn-installer
 
 cat > /etc/systemd/system/udpgw@.service <<'SERVICE'
