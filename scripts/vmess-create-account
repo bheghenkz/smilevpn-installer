@@ -38,12 +38,12 @@ UUID=$(cat /proc/sys/kernel/random/uuid)
 # shellcheck disable=SC2086
 # shellcheck disable=SC1004
 sed -i '/#vmess$/a\#vm '"${USERNAME} ${EXPIRED_AT}"'\
-},{"id": "'""${UUID}""'","alterId": '"0"',"email": "'""${USERNAME}""'"' /etc/xray/config.json
+},{"id": "'""${UUID}""'","alterId": '"0"',"email": "'""${USERNAME}""'"}' /etc/xray/config.json
 # shellcheck disable=SC2027
 # shellcheck disable=SC2086
 # shellcheck disable=SC1004
 sed -i '/#vmessgrpc$/a\#vmg '"${USERNAME} ${EXPIRED_AT}"'\
-},{"id": "'""${UUID}""'","alterId": '"0"',"email": "'""${USERNAME}""'"' /etc/xray/config.json
+},{"id": "'""${UUID}""'","alterId": '"0"',"email": "'""${USERNAME}""'"}' /etc/xray/config.json
 
 
 
