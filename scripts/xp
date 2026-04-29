@@ -1,85 +1,71 @@
 #!/bin/bash
 
-today="$(date +"%Y-%m-%d")"
+now_ts="$(date +%s)"
 
-rm -f /root/trial* 2>/dev/null || true
-echo 1 > /proc/sys/vm/drop_caches 2>/dev/null || true
+parse_exp_ts() {
+    exp="$1"
+
+    # kalau format cuma tanggal, expire di awal hari itu
+    if echo "$exp" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+        date -d "$exp" +%s 2>/dev/null || echo 0
+    else
+        date -d "$exp" +%s 2>/dev/null || echo 0
+    fi
+}
 
 mkdir -p /etc/xray /etc/xray/sshx /etc/vmess /etc/vless /etc/trojan /var/www/html
 touch /etc/xray/ssh /etc/xray/config.json
 
-# SSH expired
-data=($(grep '^###' /etc/xray/ssh | cut -d ' ' -f 2 | sort | uniq))
-for user in "${data[@]}"; do
-    pass="$(grep -w "^### $user" /etc/xray/ssh | cut -d ' ' -f 4 | sort | uniq)"
-    exp="$(grep -w "^### $user" /etc/xray/ssh | cut -d ' ' -f 3 | sort | uniq)"
+# SSH
+while read -r tag user exp_date exp_time pass rest; do
+    [ "$tag" = "###" ] || continue
+    [ -z "$user" ] && continue
 
-    d1="$(date -d "$exp" +%s 2>/dev/null || echo 0)"
-    d2="$(date -d "$today" +%s)"
-    exp2=$(((d1 - d2) / 86400))
+    if echo "$exp_time" | grep -Eq '^[0-9]{2}:[0-9]{2}'; then
+        exp="$exp_date $exp_time"
+    else
+        exp="$exp_date"
+        pass="$exp_time"
+    fi
 
-    if [[ "$exp2" -le 0 ]]; then
-        sed -i "/^### $user $exp $pass/d" /etc/xray/ssh
+    exp_ts="$(parse_exp_ts "$exp")"
+
+    if [ "$exp_ts" -gt 0 ] && [ "$now_ts" -ge "$exp_ts" ]; then
+        sed -i "/^### $user /d" /etc/xray/ssh
         getent passwd "$user" >/dev/null 2>&1 && userdel "$user" >/dev/null 2>&1 || true
         rm -f "/var/www/html/ssh-$user.txt" "/etc/xray/sshx/${user}IP" "/etc/xray/sshx/${user}login"
     fi
-done
+done < /etc/xray/ssh
 
-# VMess expired
-data=($(grep '^#vmg' /etc/xray/config.json | cut -d ' ' -f 2 | sort | uniq))
-for user in "${data[@]}"; do
-    exp="$(grep -w "^#vmg $user" /etc/xray/config.json | cut -d ' ' -f 3 | sort | uniq)"
-    uuid="$(grep -w "^#vmg $user" /etc/xray/config.json | cut -d ' ' -f 4 | sort | uniq)"
+expire_xray() {
+    prefix="$1"
+    prefixg="$2"
+    dir="$3"
+    html="$4"
 
-    d1="$(date -d "$exp" +%s 2>/dev/null || echo 0)"
-    d2="$(date -d "$today" +%s)"
-    exp2=$(((d1 - d2) / 86400))
+    grep "^#$prefixg " /etc/xray/config.json | while read -r mark user exp_date exp_time uuid rest; do
+        [ -z "$user" ] && continue
 
-    if [[ "$exp2" -le 0 ]]; then
-        touch /etc/vmess/akundelete
-        echo "### $user $exp $uuid" >> /etc/vmess/akundelete
-        sed -i "/^#vmg $user $exp/,/^,{/d" /etc/xray/config.json
-        sed -i "/^#vm $user $exp/,/^,{/d" /etc/xray/config.json
-        rm -f "/var/www/html/vmess-$user.txt" "/etc/vmess/${user}IP" "/etc/vmess/${user}login"
-    fi
-done
+        if echo "$exp_time" | grep -Eq '^[0-9]{2}:[0-9]{2}'; then
+            exp="$exp_date $exp_time"
+        else
+            exp="$exp_date"
+            uuid="$exp_time"
+        fi
 
-# VLess expired
-data=($(grep '^#vlg' /etc/xray/config.json | cut -d ' ' -f 2 | sort | uniq))
-for user in "${data[@]}"; do
-    exp="$(grep -w "^#vlg $user" /etc/xray/config.json | cut -d ' ' -f 3 | sort | uniq)"
-    uuid="$(grep -w "^#vlg $user" /etc/xray/config.json | cut -d ' ' -f 4 | sort | uniq)"
+        exp_ts="$(parse_exp_ts "$exp")"
 
-    d1="$(date -d "$exp" +%s 2>/dev/null || echo 0)"
-    d2="$(date -d "$today" +%s)"
-    exp2=$(((d1 - d2) / 86400))
+        if [ "$exp_ts" -gt 0 ] && [ "$now_ts" -ge "$exp_ts" ]; then
+            echo "### $user $exp $uuid" >> "$dir/akundelete"
+            sed -i "/^#$prefixg $user /,/^,{/d" /etc/xray/config.json
+            sed -i "/^#$prefix $user /,/^,{/d" /etc/xray/config.json
+            rm -f "/var/www/html/${html}-${user}.txt" "$dir/${user}IP" "$dir/${user}login"
+        fi
+    done
+}
 
-    if [[ "$exp2" -le 0 ]]; then
-        touch /etc/vless/akundelete
-        echo "### $user $exp $uuid" >> /etc/vless/akundelete
-        sed -i "/^#vlg $user $exp/,/^,{/d" /etc/xray/config.json
-        sed -i "/^#vl $user $exp/,/^,{/d" /etc/xray/config.json
-        rm -f "/var/www/html/vless-$user.txt" "/etc/vless/${user}IP" "/etc/vless/${user}login"
-    fi
-done
-
-# Trojan expired
-data=($(grep '^#trg' /etc/xray/config.json | cut -d ' ' -f 2 | sort | uniq))
-for user in "${data[@]}"; do
-    exp="$(grep -w "^#trg $user" /etc/xray/config.json | cut -d ' ' -f 3 | sort | uniq)"
-    uuid="$(grep -w "^#trg $user" /etc/xray/config.json | cut -d ' ' -f 4 | sort | uniq)"
-
-    d1="$(date -d "$exp" +%s 2>/dev/null || echo 0)"
-    d2="$(date -d "$today" +%s)"
-    exp2=$(((d1 - d2) / 86400))
-
-    if [[ "$exp2" -le 0 ]]; then
-        touch /etc/trojan/akundelete
-        echo "### $user $exp $uuid" >> /etc/trojan/akundelete
-        sed -i "/^#tr $user $exp/,/^,{/d" /etc/xray/config.json
-        sed -i "/^#trg $user $exp/,/^,{/d" /etc/xray/config.json
-        rm -f "/var/www/html/trojan-$user.txt" "/etc/trojan/${user}IP" "/etc/trojan/${user}login"
-    fi
-done
+expire_xray "vm" "vmg" "/etc/vmess" "vmess"
+expire_xray "vl" "vlg" "/etc/vless" "vless"
+expire_xray "tr" "trg" "/etc/trojan" "trojan"
 
 systemctl restart xray 2>/dev/null || true

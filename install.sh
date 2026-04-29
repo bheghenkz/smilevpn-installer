@@ -247,7 +247,7 @@ echo "⏰ Installing cron jobs..."
 cat > /etc/cron.d/smilevpn <<'CRON'
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-2 0 * * * root /usr/local/sbin/smilevpn/xp >/dev/null 2>&1
+*/5 * * * * root /usr/local/sbin/smilevpn/xp >/dev/null 2>&1
 CRON
 chmod 644 /etc/cron.d/smilevpn
 systemctl enable cron
