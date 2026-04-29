@@ -66,6 +66,9 @@ Berakhir Pada    : $EXPIRED_AT
 
 END
 
+cat /etc/xray/sshx/akun/log-create-${USERNAME}.log
+
+
 cat > /etc/xray/sshx/akun/log-create-${USERNAME}.log <<EOF
 🔐 SSH ACCOUNT
 

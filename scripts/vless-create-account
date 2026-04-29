@@ -122,6 +122,9 @@ ${VMESS_LINK_GRPC}
 
 END
 
+cat /etc/vless/akun/log-create-${USERNAME}.log
+
+
 cat > /etc/vless/akun/log-create-${USERNAME}.log <<EOF
 🔐 VLESS ACCOUNT
 

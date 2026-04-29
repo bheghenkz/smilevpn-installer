@@ -90,6 +90,9 @@ cat >/var/www/html/trojan-$USERNAME.txt <<-END
 
 END
 
+cat /etc/trojan/akun/log-create-${USERNAME}.log
+
+
 cat > /etc/trojan/akun/log-create-${USERNAME}.log <<EOF
 🔐 TROJAN ACCOUNT
 
