@@ -1,8 +1,15 @@
 #!/bin/bash
 
+
+
 USERNAME=$1
+
 EXPIRED_AT=$2
-IPLIMIT="5"
+# SUPPORT TRIAL 1 JAM
+if [ "$EXPIRED_AT" = "trial" ]; then
+    EXPIRED_AT=$(date -d "+1 hour" "+%Y-%m-%d %H:%M")
+fi
+IPLIMIT="${3:-5}"
 QUOTA="0"
 
 IP=$(curl -s ipv4.icanhazip.com)

@@ -1,9 +1,16 @@
 #!/bin/bash
 
+
+
 USERNAME=$1
+
 PASSWORD=$2
 EXPIRED_AT=$3
-IPLIMIT="5"
+# SUPPORT TRIAL 1 JAM
+if [ "$EXPIRED_AT" = "trial" ]; then
+    EXPIRED_AT=$(date -d "+1 hour" "+%Y-%m-%d %H:%M")
+fi
+IPLIMIT="${4:-5}"
 
 IP=$(curl -s ipv4.icanhazip.com)
 ISP=$(cat /etc/xray/isp)
