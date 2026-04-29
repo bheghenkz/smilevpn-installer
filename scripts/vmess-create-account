@@ -146,7 +146,6 @@ ${VMESS_LINK_GRPC}
 
 END
 
-cat /etc/vmess/akun/log-create-${USERNAME}.log
 
 
 cat > /etc/vmess/akun/log-create-${USERNAME}.log <<EOF
@@ -182,3 +181,4 @@ gRPC
 vmess://${VMESS_LINK_GRPC}
 EOF
 
+cat /etc/vmess/akun/log-create-${USERNAME}.log

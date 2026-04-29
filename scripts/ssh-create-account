@@ -66,7 +66,6 @@ Berakhir Pada    : $EXPIRED_AT
 
 END
 
-cat /etc/xray/sshx/akun/log-create-${USERNAME}.log
 
 
 cat > /etc/xray/sshx/akun/log-create-${USERNAME}.log <<EOF
@@ -100,3 +99,4 @@ Host: ${DOMAIN}[crlf]
 Upgrade: websocket[crlf][crlf]
 EOF
 
+cat /etc/xray/sshx/akun/log-create-${USERNAME}.log
