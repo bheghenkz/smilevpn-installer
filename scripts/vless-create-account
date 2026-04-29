@@ -122,32 +122,36 @@ ${VMESS_LINK_GRPC}
 
 END
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "        Vless Account" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "Remarks        : ${USERNAME}" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "Domain         : ${DOMAIN}" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "ISP            : ${ISP}" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "CITY           : ${CITY}" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "Wildcard       : (bug.com).${DOMAIN}" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "LImit Quota    : ${IPLIMIT} GB" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "Limit Ip       : ${IPLIMIT} IP" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "Port TLS       : ${TLS}" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "Port none TLS  : ${NTLS}" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "id             : ${UUID}" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "Encryption     : none" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "Network        : ws" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "Path           : /vless/multipath" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "Dynamic        : https://bugmu.com/path" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "Path           : vless-grpc" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "Link TLS       : ${VLESS_LINK_TLS}" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "Link none TLS  : ${VLESS_LINK_NTLS}" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "Link gRPC      : ${VLESS_LINK_GRPC}" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "OpenClash      : https://${DOMAIN}:81/vless-$USERNAME.txt" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "Expired On     : ${EXPIRED_AT}" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/vless/akun/log-create-${USERNAME}.log
+cat > /etc/vless/akun/log-create-${USERNAME}.log <<EOF
+🔐 VLESS ACCOUNT
+
+Username   : ${USERNAME}
+UUID       : ${UUID}
+Expired    : ${EXPIRED_AT}
+Limit IP   : ${IPLIMIT} IP
+
+🌐 SERVER
+Domain     : ${DOMAIN}
+IP         : ${IP}
+City       : ${CITY}
+
+🔌 PORT
+TLS        : 443
+Non TLS    : 80
+gRPC       : 443
+Path       : /vless/multipath
+Service    : vless-grpc
+
+🔗 LINK
+OpenClash  : https://${DOMAIN}:81/vless-${USERNAME}.txt
+
+TLS
+${VLESS_LINK_TLS}
+
+Non TLS
+${VLESS_LINK_NTLS}
+
+gRPC
+${VLESS_LINK_GRPC}
+EOF
+

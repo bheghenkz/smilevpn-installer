@@ -90,31 +90,37 @@ cat >/var/www/html/trojan-$USERNAME.txt <<-END
 
 END
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "           TROJAN ACCOUNT" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "Remarks       : ${USERNAME}" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "ISP           : ${ISP}" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "CITY          : ${CITY}" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "Host/IP       : ${DOMAIN}" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "Limit Quota    : ${QUOTA} GB" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "Limit Ip       : ${IPLIMIT} IP" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "Wildcard      : (bug.com).${DOMAIN}" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "Port TLS      : ${TLS}" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "Port none TLS : ${NTLS}" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "Port gRPC     : ${TLS}" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "Key           : ${UUID}" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "Path          : /trojan-ws/multipath" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "Dynamic       : https://bugmu.com/path" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "ServiceName   : trojan-grpc" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "OpenClash     : https://${DOMAIN}:81/trojan-$USERNAME.txt" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "Link TLS      : ${TROJAN_LINK_TLS}" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "Link none TLS : ${TROJAN_LINK_NTLS}" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "Link gRPC     : ${TROJAN_LINK_GRPC}" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "Expired At    : ${EXPIRED_AT} " | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/trojan/akun/log-create-${USERNAME}.log
+cat > /etc/trojan/akun/log-create-${USERNAME}.log <<EOF
+🔐 TROJAN ACCOUNT
+
+Username   : ${USERNAME}
+Key        : ${UUID}
+Expired    : ${EXPIRED_AT}
+Limit IP   : ${IPLIMIT} IP
+Quota      : ${QUOTA} GB
+
+🌐 SERVER
+Domain     : ${DOMAIN}
+IP         : ${IP}
+City       : ${CITY}
+
+🔌 PORT
+TLS        : ${TLS}
+Non TLS    : ${NTLS}
+gRPC       : ${TLS}
+Path       : /trojan-ws/multipath
+Service    : trojan-grpc
+
+🔗 LINK
+OpenClash  : https://${DOMAIN}:81/trojan-${USERNAME}.txt
+
+TLS
+${TROJAN_LINK_TLS}
+
+Non TLS
+${TROJAN_LINK_NTLS}
+
+gRPC
+${TROJAN_LINK_GRPC}
+EOF
+

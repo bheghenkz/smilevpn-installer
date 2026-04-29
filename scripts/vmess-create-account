@@ -146,34 +146,36 @@ ${VMESS_LINK_GRPC}
 
 END
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "        Vmess Account" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "Remarks        : ${USERNAME}" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "ISP            : ${ISP}" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "CITY           : ${CITY}" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "DOMAIN         : ${DOMAIN}" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "Wildcard       : (bug.com).${DOMAIN}" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "User Quota     : ${QUOTA} GB" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "User Ip        : ${IPLIMIT} IP" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "Port TLS       : ${TLS}" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "Port none TLS  : ${NTLS}" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "Port gRPC      : ${TLS}" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "id             : ${UUID}" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "alterId        : 0" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "Security       : auto" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "Network        : ws" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "Path           : /vmess/multipath" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "Dynamic        : https://bugmu.com/path" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "ServiceName    : vmess-grpc" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "Link TLS       : ${VMESS_LINK_TLS}" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "Link none TLS  : ${VMESS_LINK_NTLS}" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "Link gRPC      : ${VMESS_LINK_GRPC}" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "OpenClash : https://${DOMAIN}:81/vmess-$USERNAME.txt" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "Expired On     : ${EXPIRED_AT}" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" | tee -a /etc/vmess/akun/log-create-${USERNAME}.log
+cat > /etc/vmess/akun/log-create-${USERNAME}.log <<EOF
+🔐 VMESS ACCOUNT
+
+Username   : ${USERNAME}
+UUID       : ${UUID}
+Expired    : ${EXPIRED_AT}
+Limit IP   : ${IPLIMIT} IP
+
+🌐 SERVER
+Domain     : ${DOMAIN}
+IP         : ${IP}
+City       : ${CITY}
+
+🔌 PORT
+TLS        : 443
+Non TLS    : 80
+gRPC       : 443
+Path       : /vmess/multipath
+Service    : vmess-grpc
+
+🔗 LINK
+OpenClash  : https://${DOMAIN}:81/vmess-${USERNAME}.txt
+
+TLS
+vmess://${VMESS_LINK_TLS}
+
+Non TLS
+vmess://${VMESS_LINK_NTLS}
+
+gRPC
+vmess://${VMESS_LINK_GRPC}
+EOF
+
