@@ -1,0 +1,79 @@
+#!/bin/bash
+
+LOG="/var/log/xray/access.log"
+STATE_DIR="/etc/smilevpn-limit"
+mkdir -p "$STATE_DIR"
+
+check_xray() {
+    DIR="$1"
+    SERVICE="$2"
+
+    [ -d "$DIR" ] || return
+
+    for f in "$DIR"/*IP; do
+        [ -f "$f" ] || continue
+
+        USER=$(basename "$f" IP)
+        LIMIT=$(cat "$f")
+
+        [ "$LIMIT" = "0" ] && continue
+
+        COUNT=$(grep -w "$USER" "$LOG" 2>/dev/null \
+            | awk '{print $3}' \
+            | sed 's/:.*//' \
+            | sort -u \
+            | wc -l)
+
+        LOCK="/tmp/limit-$SERVICE-$USER"
+        STRIKE_FILE="$STATE_DIR/$SERVICE-$USER.strike"
+        BLOCK_FILE="$STATE_DIR/$SERVICE-$USER.blocked_until"
+
+        STRIKE=$(cat "$STRIKE_FILE" 2>/dev/null || echo 0)
+
+        if [ "$COUNT" -gt "$LIMIT" ]; then
+            if [ ! -f "$LOCK" ]; then
+
+                STRIKE=$((STRIKE+1))
+                echo "$STRIKE" > "$STRIKE_FILE"
+
+                if [ "$STRIKE" -eq 1 ]; then
+                    BLOCK_TIME=$(date -d "+1 hour" "+%Y-%m-%d %H:%M:%S")
+                    echo "$BLOCK_TIME" > "$BLOCK_FILE"
+                    echo "LIMIT HIT: $SERVICE $USER ($COUNT/$LIMIT) STRIKE 1 -> BLOCK 1 JAM"
+                elif [ "$STRIKE" -eq 2 ]; then
+                    BLOCK_TIME=$(date -d "+3 hour" "+%Y-%m-%d %H:%M:%S")
+                    echo "$BLOCK_TIME" > "$BLOCK_FILE"
+                    echo "LIMIT HIT: $SERVICE $USER ($COUNT/$LIMIT) STRIKE 2 -> BLOCK 3 JAM"
+                else
+                    echo "LIMIT HIT: $SERVICE $USER ($COUNT/$LIMIT) STRIKE 3 -> SUSPEND"
+                    sed -i "/$USER/d" /etc/xray/config.json
+                fi
+
+                systemctl restart xray >/dev/null 2>&1
+                touch "$LOCK"
+            fi
+        fi
+    done
+}
+
+check_ssh() {
+    DIR="/etc/xray/sshx"
+
+    for f in "$DIR"/*IP; do
+        [ -f "$f" ] || continue
+
+        USER=$(basename "$f" IP)
+        LIMIT=$(cat "$f")
+
+        COUNT=$(who | grep -w "$USER" | wc -l)
+
+        if [ "$COUNT" -gt "$LIMIT" ]; then
+            pkill -u "$USER"
+        fi
+    done
+}
+
+check_xray "/etc/trojan" "trojan"
+check_xray "/etc/vmess" "vmess"
+check_xray "/etc/vless" "vless"
+check_ssh

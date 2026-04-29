@@ -248,6 +248,7 @@ cat > /etc/cron.d/smilevpn <<'CRON'
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 */5 * * * * root /usr/local/sbin/smilevpn/xp >/dev/null 2>&1
+* * * * * root /usr/local/sbin/smilevpn/limit-ip-check >> /var/log/smilevpn-limit.log 2>&1
 CRON
 chmod 644 /etc/cron.d/smilevpn
 systemctl enable cron
