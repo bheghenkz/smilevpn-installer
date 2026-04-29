@@ -117,7 +117,26 @@ if [ ! -f /etc/systemd/system/xray.service ]; then
     rm -rf /etc/systemd/system/xray.service.d
 fi
 
-bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
+echo "⚙️ Installing Xray Core..."
+export TERM=xterm
+
+XRAY_INSTALLER_URL="https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
+XRAY_OK=0
+
+for i in 1 2 3; do
+    echo "Try installing Xray attempt $i..."
+    if curl -L --connect-timeout 20 --retry 3 --retry-delay 5 -o /tmp/xray-install.sh "$XRAY_INSTALLER_URL" && bash /tmp/xray-install.sh install; then
+        XRAY_OK=1
+        break
+    fi
+    sleep 5
+done
+
+if [ "$XRAY_OK" != "1" ]; then
+    echo "❌ Xray install failed: cannot download from GitHub"
+    exit 1
+fi
+
 
 echo "⚙️ Installing Xray config..."
 cp config/xray.json /etc/xray/config.json
