@@ -172,13 +172,13 @@ Service    : vmess-grpc
 OpenClash  : https://${DOMAIN}:81/vmess-${USERNAME}.txt
 
 TLS
-vmess://${VMESS_LINK_TLS}
+${VMESS_LINK_TLS}
 
 Non TLS
-vmess://${VMESS_LINK_NTLS}
+${VMESS_LINK_NTLS}
 
 gRPC
-vmess://${VMESS_LINK_GRPC}
+${VMESS_LINK_GRPC}
 EOF
 
 cat /etc/vmess/akun/log-create-${USERNAME}.log
