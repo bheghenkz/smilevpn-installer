@@ -13,7 +13,7 @@ parse_exp_ts() {
     fi
 }
 
-mkdir -p /etc/xray /etc/xray/sshx /etc/vmess /etc/vless /etc/trojan /etc/shadowsocks /etc/vlessreality /var/www/html
+mkdir -p /etc/xray /etc/xray/sshx /etc/vmess /etc/vless /etc/trojan /etc/shadowsocks /etc/vlessreality /etc/trojango /var/www/html
 touch /etc/xray/ssh /etc/xray/config.json
 
 # SSH

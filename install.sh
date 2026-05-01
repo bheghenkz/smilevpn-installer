@@ -181,6 +181,7 @@ if command -v ufw >/dev/null 2>&1; then
     ufw allow 80 || true
     ufw allow 443 || true
     ufw allow 8443/tcp || true
+    ufw allow 2087/tcp || true
 fi
 
 
@@ -273,6 +274,32 @@ echo "✅ Cron jobs installed"
 echo "🔐 Installing SSH stack..."
 bash modules/ssh.sh
 
+
+
+
+echo "🚀 Installing Trojan-Go..."
+curl -L https://github.com/p4gefau1t/trojan-go/releases/latest/download/trojan-go-linux-amd64.zip -o /tmp/trojan-go.zip
+cd /tmp
+unzip -o trojan-go.zip
+install -m 755 trojan-go /usr/local/bin/trojan-go
+mkdir -p /etc/trojan-go
+
+cat > /etc/systemd/system/trojan-go.service <<'TROJANGO_SERVICE'
+[Unit]
+Description=Trojan-Go Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/trojan-go -config /etc/trojan-go/config.json
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+TROJANGO_SERVICE
+
+systemctl daemon-reload
+systemctl enable trojan-go
 
 
 echo "🚀 Enable services..."

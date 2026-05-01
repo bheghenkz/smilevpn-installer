@@ -1,0 +1,32 @@
+#!/bin/bash
+
+USERNAME=$1
+
+if [ -z "$USERNAME" ]; then
+    echo "Usage: trojango-delete-account USERNAME"
+    exit 1
+fi
+
+LOG="/etc/trojango/akun/log-create-${USERNAME}.log"
+if [ ! -f "$LOG" ]; then
+    echo "User not found: ${USERNAME}"
+    exit 1
+fi
+
+PASS=$(grep "^Password" "$LOG" | awk '{print $3}')
+
+python3 - <<PY
+import json, os
+p="/etc/trojan-go/config.json"
+if os.path.exists(p):
+    data=json.load(open(p))
+    data["password"]=[x for x in data.get("password", []) if x != "${PASS}"]
+    open(p,"w").write(json.dumps(data, indent=2))
+PY
+
+rm -f /etc/trojango/${USERNAME}IP
+rm -f /etc/trojango/${USERNAME}
+rm -f /etc/trojango/akun/log-create-${USERNAME}.log
+rm -f /var/www/html/trojango-${USERNAME}.txt
+
+systemctl restart trojan-go >/dev/null 2>&1

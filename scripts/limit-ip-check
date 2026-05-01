@@ -164,4 +164,5 @@ check_xray "/etc/vmess" "vmess"
 check_xray "/etc/vless" "vless"
 check_xray "/etc/shadowsocks" "shadowsocks"
 check_xray "/etc/vlessreality" "vless-reality"
+check_xray "/etc/trojango" "trojango"
 check_ssh

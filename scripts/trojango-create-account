@@ -1,0 +1,85 @@
+#!/bin/bash
+
+USERNAME=$1
+EXPIRED_AT=$2
+IPLIMIT="${3:-5}"
+QUOTA="0"
+
+if [ -z "$USERNAME" ] || [ -z "$EXPIRED_AT" ]; then
+    echo "Usage: trojango-create-account USERNAME expired|trial IPLIMIT"
+    exit 1
+fi
+
+if [ "$EXPIRED_AT" = "trial" ]; then
+    EXPIRED_AT=$(date -d "+1 hour" "+%Y-%m-%d %H:%M")
+fi
+
+DOMAIN=$(cat /etc/xray/domain)
+IP=$(cat /etc/xray/ip 2>/dev/null || curl -s ipv4.icanhazip.com)
+CITY=$(cat /etc/xray/city 2>/dev/null || echo "Unknown")
+PASS=$(openssl rand -hex 8)
+
+mkdir -p /etc/trojango/akun
+mkdir -p /etc/trojan-go
+mkdir -p /var/www/html
+
+[ "$IPLIMIT" = "0" ] && IPLIMIT="9999"
+echo "$IPLIMIT" >/etc/trojango/${USERNAME}IP
+
+if [ ! -f /etc/trojan-go/config.json ]; then
+cat > /etc/trojan-go/config.json <<'TROJANGO_CONFIG'
+{
+  "run_type": "server",
+  "local_addr": "0.0.0.0",
+  "local_port": 2087,
+  "remote_addr": "127.0.0.1",
+  "remote_port": 80,
+  "password": [],
+  "ssl": {
+    "cert": "/etc/xray/ssl/fullchain.pem",
+    "key": "/etc/xray/ssl/privkey.pem"
+  }
+}
+TROJANGO_CONFIG
+fi
+
+python3 - <<PY
+import json
+p="/etc/trojan-go/config.json"
+data=json.load(open(p))
+pw="${PASS}"
+if pw not in data.get("password", []):
+    data.setdefault("password", []).append(pw)
+open(p,"w").write(json.dumps(data, indent=2))
+PY
+
+systemctl restart trojan-go >/dev/null 2>&1
+
+LINK="trojan://${PASS}@${DOMAIN}:2087?sni=${DOMAIN}#${USERNAME}"
+
+cat > /var/www/html/trojango-${USERNAME}.txt <<END
+🔐 TROJAN-GO ACCOUNT
+
+Username   : ${USERNAME}
+Password   : ${PASS}
+Expired    : ${EXPIRED_AT}
+Limit IP   : ${IPLIMIT} IP
+Quota      : ${QUOTA} GB
+
+🌐 SERVER
+Domain     : ${DOMAIN}
+IP         : ${IP}
+City       : ${CITY}
+
+🔌 PORT
+TLS        : 2087
+
+🔗 LINK
+OpenClash  : https://${DOMAIN}:81/trojango-${USERNAME}.txt
+
+Trojan-Go
+${LINK}
+END
+
+cp /var/www/html/trojango-${USERNAME}.txt /etc/trojango/akun/log-create-${USERNAME}.log
+cat /etc/trojango/akun/log-create-${USERNAME}.log
