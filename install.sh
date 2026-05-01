@@ -158,6 +158,18 @@ sed -i "s/__TROJAN_GRPC_SEED__/$(cat /proc/sys/kernel/random/uuid)/g" /etc/xray/
 sed -i "s/__SS_WS_SEED__/$(openssl rand -hex 8)/g" /etc/xray/config.json
 sed -i "s/__SS_GRPC_SEED__/$(openssl rand -hex 8)/g" /etc/xray/config.json
 
+REALITY_KEYS=$(xray x25519)
+REALITY_PRIVATE=$(echo "$REALITY_KEYS" | awk '/Private key:/ {print $3}')
+REALITY_PUBLIC=$(echo "$REALITY_KEYS" | awk '/Public key:/ {print $3}')
+REALITY_SHORT=$(openssl rand -hex 4)
+
+echo "$REALITY_PUBLIC" > /etc/xray/reality_public
+echo "$REALITY_SHORT" > /etc/xray/reality_short
+
+sed -i "s|__REALITY_SEED__|$(cat /proc/sys/kernel/random/uuid)|g" /etc/xray/config.json
+sed -i "s|__REALITY_PRIVATE__|${REALITY_PRIVATE}|g" /etc/xray/config.json
+sed -i "s|__REALITY_SHORT__|${REALITY_SHORT}|g" /etc/xray/config.json
+
 cp /etc/xray/config.json /usr/local/etc/xray/config.json
 
 echo "🌐 Installing Nginx config..."
@@ -168,6 +180,7 @@ if command -v ufw >/dev/null 2>&1; then
     ufw allow 22 || true
     ufw allow 80 || true
     ufw allow 443 || true
+    ufw allow 8443/tcp || true
 fi
 
 
@@ -259,6 +272,8 @@ echo "✅ Cron jobs installed"
 
 echo "🔐 Installing SSH stack..."
 bash modules/ssh.sh
+
+
 
 echo "🚀 Enable services..."
 systemctl daemon-reload

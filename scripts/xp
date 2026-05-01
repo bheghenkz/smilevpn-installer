@@ -13,7 +13,7 @@ parse_exp_ts() {
     fi
 }
 
-mkdir -p /etc/xray /etc/xray/sshx /etc/vmess /etc/vless /etc/trojan /etc/shadowsocks /var/www/html
+mkdir -p /etc/xray /etc/xray/sshx /etc/vmess /etc/vless /etc/trojan /etc/shadowsocks /etc/vlessreality /var/www/html
 touch /etc/xray/ssh /etc/xray/config.json
 
 # SSH
@@ -68,5 +68,6 @@ expire_xray "vm" "vmg" "/etc/vmess" "vmess"
 expire_xray "vl" "vlg" "/etc/vless" "vless"
 expire_xray "tr" "trg" "/etc/trojan" "trojan"
 expire_xray "ss" "ssg" "/etc/shadowsocks" "shadowsocks"
+expire_xray "vr" "vr" "/etc/vlessreality" "vless-reality"
 
 systemctl restart xray 2>/dev/null || true

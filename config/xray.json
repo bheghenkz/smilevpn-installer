@@ -128,6 +128,30 @@
         "network": "grpc",
         "grpcSettings": {"serviceName": "ss-grpc"}
       }
+    },
+    {
+      "port": 8443,
+      "listen": "0.0.0.0",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {"id": "__REALITY_SEED__", "flow": "xtls-rprx-vision", "email": "seed-reality"}
+          #vlessreality
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "dest": "www.cloudflare.com:443",
+          "xver": 0,
+          "serverNames": ["www.cloudflare.com"],
+          "privateKey": "__REALITY_PRIVATE__",
+          "shortIds": ["__REALITY_SHORT__"]
+        }
+      }
     }
   ],
   "outbounds": [

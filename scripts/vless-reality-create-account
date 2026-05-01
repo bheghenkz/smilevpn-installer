@@ -1,0 +1,71 @@
+#!/bin/bash
+
+USERNAME=$1
+EXPIRED_AT=$2
+IPLIMIT="${3:-5}"
+QUOTA="0"
+
+if [ -z "$USERNAME" ] || [ -z "$EXPIRED_AT" ]; then
+    echo "Usage: vless-reality-create-account USERNAME expired|trial IPLIMIT"
+    exit 1
+fi
+
+if [ "$EXPIRED_AT" = "trial" ]; then
+    EXPIRED_AT=$(date -d "+1 hour" "+%Y-%m-%d %H:%M")
+fi
+
+IP=$(cat /etc/xray/ip 2>/dev/null || curl -s ipv4.icanhazip.com)
+ISP=$(cat /etc/xray/isp)
+CITY=$(cat /etc/xray/city)
+DOMAIN=$(cat /etc/xray/domain)
+PUBLIC_KEY=$(cat /etc/xray/reality_public)
+SHORT_ID=$(cat /etc/xray/reality_short)
+
+mkdir -p /etc/vlessreality/akun
+
+[ "$IPLIMIT" = "0" ] && IPLIMIT="9999"
+[ "$QUOTA" = "0" ] && QUOTA="9999"
+
+echo "$IPLIMIT" >/etc/vlessreality/${USERNAME}IP
+echo "$((QUOTA * 1024 * 1024 * 1024))" >/etc/vlessreality/${USERNAME}
+
+UUID=$(cat /proc/sys/kernel/random/uuid)
+
+VR_LINK="vless://${UUID}@${DOMAIN}:8443?security=reality&encryption=none&type=tcp&flow=xtls-rprx-vision&sni=www.cloudflare.com&fp=chrome&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}#${USERNAME}"
+
+sed -i '/#vlessreality$/a\#vr '"${USERNAME} ${EXPIRED_AT}"'\
+,{"id": "'""${UUID}""'","flow": "xtls-rprx-vision","email": "'""${USERNAME}""'"}' /etc/xray/config.json
+
+systemctl restart xray >/dev/null 2>&1
+
+cat >/var/www/html/vless-reality-${USERNAME}.txt <<END
+🔐 VLESS REALITY ACCOUNT
+
+Username   : ${USERNAME}
+UUID       : ${UUID}
+Expired    : ${EXPIRED_AT}
+Limit IP   : ${IPLIMIT} IP
+Quota      : ${QUOTA} GB
+
+🌐 SERVER
+Domain     : ${DOMAIN}
+IP         : ${IP}
+ISP        : ${ISP}
+City       : ${CITY}
+
+🔌 PORT
+Reality    : 8443
+SNI        : www.cloudflare.com
+Flow       : xtls-rprx-vision
+Short ID   : ${SHORT_ID}
+Public Key : ${PUBLIC_KEY}
+
+🔗 LINK
+OpenClash  : https://${DOMAIN}:81/vless-reality-${USERNAME}.txt
+
+Reality
+${VR_LINK}
+END
+
+cp /var/www/html/vless-reality-${USERNAME}.txt /etc/vlessreality/akun/log-create-${USERNAME}.log
+cat /etc/vlessreality/akun/log-create-${USERNAME}.log
