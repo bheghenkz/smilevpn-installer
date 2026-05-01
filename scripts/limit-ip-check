@@ -60,11 +60,13 @@ fi
             fi
         fi
 
-        COUNT=$(grep -w "$USER" "$LOG" 2>/dev/null \
+        IPS=$(grep -w "$USER" "$LOG" 2>/dev/null \
             | awk '{print $3}' \
             | sed 's/:.*//' \
-            | sort -u \
-            | wc -l)
+            | sort -u)
+
+        COUNT=$(echo "$IPS" | sed '/^$/d' | wc -l)
+        IPS_COMMA=$(echo "$IPS" | paste -sd "," -)
 
         if [ "$COUNT" -le "$LIMIT" ]; then
             continue
@@ -77,17 +79,17 @@ fi
         if [ "$STRIKE" -eq 1 ]; then
             BLOCK_TIME=$(date -d "+1 hour" "+%Y-%m-%d %H:%M:%S")
             echo "$BLOCK_TIME" > "$BLOCK_FILE"
-            echo "LIMIT HIT: $SERVICE $USER ($COUNT/$LIMIT) STRIKE 1 -> BLOCK until $BLOCK_TIME"
+            echo "LIMIT HIT: $SERVICE $USER ($COUNT/$LIMIT) STRIKE 1 IPs: [$IPS_COMMA] -> BLOCK until $BLOCK_TIME"
             systemctl restart xray >/dev/null 2>&1
 
         elif [ "$STRIKE" -eq 2 ]; then
             BLOCK_TIME=$(date -d "+3 hour" "+%Y-%m-%d %H:%M:%S")
             echo "$BLOCK_TIME" > "$BLOCK_FILE"
-            echo "LIMIT HIT: $SERVICE $USER ($COUNT/$LIMIT) STRIKE 2 -> BLOCK until $BLOCK_TIME"
+            echo "LIMIT HIT: $SERVICE $USER ($COUNT/$LIMIT) STRIKE 2 IPs: [$IPS_COMMA] -> BLOCK until $BLOCK_TIME"
             systemctl restart xray >/dev/null 2>&1
 
         else
-            echo "LIMIT HIT: $SERVICE $USER ($COUNT/$LIMIT) STRIKE 3 -> SUSPENDED"
+            echo "LIMIT HIT: $SERVICE $USER ($COUNT/$LIMIT) STRIKE 3 IPs: [$IPS_COMMA] -> SUSPENDED"
             echo "$(date '+%Y-%m-%d %H:%M:%S')" > "$SUSPEND_FILE"
             rm -f "$BLOCK_FILE"
 
@@ -121,10 +123,12 @@ check_ssh() {
         [ -z "$LIMIT" ] && LIMIT=0
         [ "$LIMIT" = "0" ] && continue
 
-        COUNT=$(who | grep -w "$USER" | wc -l)
+        SSH_SESSIONS=$(who | grep -w "$USER")
+        COUNT=$(echo "$SSH_SESSIONS" | sed '/^$/d' | wc -l)
+        SSH_IPS=$(echo "$SSH_SESSIONS" | awk '{print $5}' | tr -d '()' | sort -u | paste -sd "," -)
 
         if [ "$COUNT" -gt "$LIMIT" ]; then
-            echo "LIMIT HIT: ssh $USER ($COUNT/$LIMIT) -> KILL SESSION"
+            echo "LIMIT HIT: ssh $USER ($COUNT/$LIMIT) IPs: [$SSH_IPS] -> KILL SESSION"
             pkill -u "$USER" >/dev/null 2>&1
         fi
     done
