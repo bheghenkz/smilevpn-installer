@@ -1,0 +1,25 @@
+#!/bin/bash
+
+USERNAME=$1
+EXPIRED_AT=$2
+
+if [ -z "$USERNAME" ]; then
+    echo "Usage: shadowsocks-delete-account USERNAME [EXPIRED_AT]"
+    exit 1
+fi
+
+if [ -z "$EXPIRED_AT" ]; then
+    sed -i "/^#ss ${USERNAME} /,/^,{/d" /etc/xray/config.json
+    sed -i "/^#ssg ${USERNAME} /,/^,{/d" /etc/xray/config.json
+else
+    sed -i "/^#ss ${USERNAME} ${EXPIRED_AT}/,/^,{/d" /etc/xray/config.json
+    sed -i "/^#ssg ${USERNAME} ${EXPIRED_AT}/,/^,{/d" /etc/xray/config.json
+fi
+
+rm -f /etc/shadowsocks/${USERNAME}IP
+rm -f /etc/shadowsocks/${USERNAME}
+rm -f /var/www/html/shadowsocks-${USERNAME}.txt
+rm -f /etc/shadowsocks/akun/log-create-${USERNAME}.log
+rm -f /etc/limit/shadowsocks/${USERNAME}
+
+systemctl restart xray >/dev/null 2>&1

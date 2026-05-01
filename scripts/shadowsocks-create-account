@@ -1,0 +1,122 @@
+#!/bin/bash
+
+USERNAME=$1
+EXPIRED_AT=$2
+
+if [ -z "$USERNAME" ] || [ -z "$EXPIRED_AT" ]; then
+    echo "Usage: shadowsocks-create-account USERNAME expired|trial IPLIMIT"
+    exit 1
+fi
+
+if [ "$EXPIRED_AT" = "trial" ]; then
+    EXPIRED_AT=$(date -d "+1 hour" "+%Y-%m-%d %H:%M")
+fi
+
+IPLIMIT="${3:-5}"
+QUOTA="0"
+
+IP=$(curl -s ipv4.icanhazip.com)
+ISP=$(cat /etc/xray/isp)
+CITY=$(cat /etc/xray/city)
+DOMAIN=$(cat /etc/xray/domain)
+
+mkdir -p /etc/shadowsocks/akun
+
+[ "$IPLIMIT" = "0" ] && IPLIMIT="9999"
+[ "$QUOTA" = "0" ] && QUOTA="9999"
+
+c=$(echo "${QUOTA}" | sed 's/[^0-9]*//g')
+d=$((${c} * 1024 * 1024 * 1024))
+if [[ ${c} != "0" ]]; then
+    echo "${d}" >/etc/shadowsocks/${USERNAME}
+fi
+echo "${IPLIMIT}" >/etc/shadowsocks/${USERNAME}IP
+
+METHOD="aes-128-gcm"
+PASS=$(openssl rand -hex 8)
+TLS="443"
+NTLS="80"
+
+SS_BASE=$(echo -n "${METHOD}:${PASS}" | base64 -w0)
+SS_LINK_TLS="ss://${SS_BASE}@${DOMAIN}:${TLS}?plugin=v2ray-plugin%3Btls%3Bhost%3D${DOMAIN}%3Bpath%3D%2Fss-ws#${USERNAME}"
+SS_LINK_NTLS="ss://${SS_BASE}@${DOMAIN}:${NTLS}?plugin=v2ray-plugin%3Bhost%3D${DOMAIN}%3Bpath%3D%2Fss-ws#${USERNAME}"
+SS_LINK_GRPC="ss://${SS_BASE}@${DOMAIN}:${TLS}?plugin=xray-plugin%3Btls%3Bhost%3D${DOMAIN}%3Bmode%3Dgrpc%3BserviceName%3Dss-grpc#${USERNAME}"
+
+sed -i '/#ssws$/a\#ss '"${USERNAME} ${EXPIRED_AT}"'\
+,{"method":"aes-128-gcm","password": "'""${PASS}""'","email": "'""${USERNAME}""'"}' /etc/xray/config.json
+
+sed -i '/#ssgrpc$/a\#ssg '"${USERNAME} ${EXPIRED_AT}"'\
+,{"method":"aes-128-gcm","password": "'""${PASS}""'","email": "'""${USERNAME}""'"}' /etc/xray/config.json
+
+systemctl restart xray >/dev/null 2>&1
+
+cat >/var/www/html/shadowsocks-${USERNAME}.txt <<END
+🔐 SHADOWSOCKS ACCOUNT
+
+Username   : ${USERNAME}
+Password   : ${PASS}
+Expired    : ${EXPIRED_AT}
+Limit IP   : ${IPLIMIT} IP
+Quota      : ${QUOTA} GB
+
+🌐 SERVER
+Domain     : ${DOMAIN}
+IP         : ${IP}
+ISP        : ${ISP}
+City       : ${CITY}
+
+🔌 PORT
+TLS        : 443
+Non TLS    : 80
+gRPC       : 443
+Path       : /ss-ws
+Service    : ss-grpc
+
+🔗 LINK
+OpenClash  : https://${DOMAIN}:81/shadowsocks-${USERNAME}.txt
+
+TLS
+${SS_LINK_TLS}
+
+Non TLS
+${SS_LINK_NTLS}
+
+gRPC
+${SS_LINK_GRPC}
+END
+
+cat > /etc/shadowsocks/akun/log-create-${USERNAME}.log <<EOF2
+🔐 SHADOWSOCKS ACCOUNT
+
+Username   : ${USERNAME}
+Password   : ${PASS}
+Expired    : ${EXPIRED_AT}
+Limit IP   : ${IPLIMIT} IP
+Quota      : ${QUOTA} GB
+
+🌐 SERVER
+Domain     : ${DOMAIN}
+IP         : ${IP}
+City       : ${CITY}
+
+🔌 PORT
+TLS        : 443
+Non TLS    : 80
+gRPC       : 443
+Path       : /ss-ws
+Service    : ss-grpc
+
+🔗 LINK
+OpenClash  : https://${DOMAIN}:81/shadowsocks-${USERNAME}.txt
+
+TLS
+${SS_LINK_TLS}
+
+Non TLS
+${SS_LINK_NTLS}
+
+gRPC
+${SS_LINK_GRPC}
+EOF2
+
+cat /etc/shadowsocks/akun/log-create-${USERNAME}.log

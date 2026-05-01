@@ -96,6 +96,38 @@
         "network": "grpc",
         "grpcSettings": {"serviceName": "trojan-grpc"}
       }
+    },
+    {
+      "port": 10008,
+      "listen": "127.0.0.1",
+      "protocol": "shadowsocks",
+      "settings": {
+        "clients": [
+          {"method": "aes-128-gcm", "password": "__SS_WS_SEED__", "email": "seed-ss-ws"}
+          #ssws
+        ],
+        "network": "tcp,udp"
+      },
+      "streamSettings": {
+        "network": "ws",
+        "wsSettings": {"path": "/ss-ws"}
+      }
+    },
+    {
+      "port": 10009,
+      "listen": "127.0.0.1",
+      "protocol": "shadowsocks",
+      "settings": {
+        "clients": [
+          {"method": "aes-128-gcm", "password": "__SS_GRPC_SEED__", "email": "seed-ss-grpc"}
+          #ssgrpc
+        ],
+        "network": "tcp,udp"
+      },
+      "streamSettings": {
+        "network": "grpc",
+        "grpcSettings": {"serviceName": "ss-grpc"}
+      }
     }
   ],
   "outbounds": [

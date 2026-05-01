@@ -155,6 +155,8 @@ sed -i "s/__TROJAN_SEED__/$(cat /proc/sys/kernel/random/uuid)/g" /etc/xray/confi
 sed -i "s/__VLESS_GRPC_SEED__/$(cat /proc/sys/kernel/random/uuid)/g" /etc/xray/config.json
 sed -i "s/__VMESS_GRPC_SEED__/$(cat /proc/sys/kernel/random/uuid)/g" /etc/xray/config.json
 sed -i "s/__TROJAN_GRPC_SEED__/$(cat /proc/sys/kernel/random/uuid)/g" /etc/xray/config.json
+sed -i "s/__SS_WS_SEED__/$(openssl rand -hex 8)/g" /etc/xray/config.json
+sed -i "s/__SS_GRPC_SEED__/$(openssl rand -hex 8)/g" /etc/xray/config.json
 
 cp /etc/xray/config.json /usr/local/etc/xray/config.json
 

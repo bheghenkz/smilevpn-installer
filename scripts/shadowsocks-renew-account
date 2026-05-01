@@ -1,0 +1,16 @@
+#!/bin/bash
+
+USERNAME=$1
+EXPIRED_AT=$2
+
+if [ -z "$USERNAME" ] || [ -z "$EXPIRED_AT" ]; then
+    echo "Usage: shadowsocks-renew-account USERNAME YYYY-MM-DD"
+    exit 1
+fi
+
+EXP=$(grep -wE "^#ss ${USERNAME}" "/etc/xray/config.json" | cut -d ' ' -f 3 | sort | uniq | head -n1)
+
+sed -i "s/#ss ${USERNAME} ${EXP}/#ss ${USERNAME} ${EXPIRED_AT}/g" /etc/xray/config.json
+sed -i "s/#ssg ${USERNAME} ${EXP}/#ssg ${USERNAME} ${EXPIRED_AT}/g" /etc/xray/config.json
+
+systemctl restart xray >/dev/null 2>&1
