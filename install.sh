@@ -324,7 +324,13 @@ TROJANGO_SERVICE
 
 systemctl daemon-reload
 systemctl enable trojan-go
-systemctl restart trojan-go || true
+systemctl reset-failed trojan-go || true
+systemctl restart trojan-go
+systemctl is-active --quiet trojan-go || {
+    echo "❌ Trojan-Go failed to start"
+    journalctl -u trojan-go -n 80 --no-pager
+    exit 1
+}
 
 
 echo "🚀 Enable services..."
