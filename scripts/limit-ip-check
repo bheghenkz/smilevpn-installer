@@ -82,8 +82,7 @@ fi
         fi
 
         IPS=$(grep -w "$USER" "$LOG" 2>/dev/null \
-            | awk '{print $3}' \
-            | sed 's/:.*//' \
+            | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' \
             | sort -u)
 
         COUNT=$(echo "$IPS" | sed '/^$/d' | wc -l)
