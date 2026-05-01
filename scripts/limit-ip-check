@@ -2,7 +2,28 @@
 
 LOG="/var/log/xray/access.log"
 STATE_DIR="/etc/smilevpn-limit"
+PANEL_URL=$(cat /etc/smilevpn-panel-url 2>/dev/null)
+API_TOKEN=$(cat /etc/smilevpn-api-token 2>/dev/null)
 mkdir -p "$STATE_DIR"
+
+send_log() {
+    [ -z "$PANEL_URL" ] && return
+    [ -z "$API_TOKEN" ] && return
+
+    curl -s -X POST "$PANEL_URL/api/security/ip-limit" \
+        -H "Authorization: Bearer $API_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "{
+            \"username\": \"$1\",
+            \"service\": \"$2\",
+            \"limit\": $3,
+            \"count\": $4,
+            \"ips\": \"$5\",
+            \"strike\": $6,
+            \"action\": \"$7\",
+            \"blocked_until\": \"$8\"
+        }" >/dev/null 2>&1 &
+}
 
 now_ts() {
     date +%s
@@ -80,16 +101,19 @@ fi
             BLOCK_TIME=$(date -d "+1 hour" "+%Y-%m-%d %H:%M:%S")
             echo "$BLOCK_TIME" > "$BLOCK_FILE"
             echo "LIMIT HIT: $SERVICE $USER ($COUNT/$LIMIT) STRIKE 1 IPs: [$IPS_COMMA] -> BLOCK until $BLOCK_TIME"
+            send_log "$USER" "$SERVICE" "$LIMIT" "$COUNT" "$IPS_COMMA" 1 "Block 1 hour" "$BLOCK_TIME"
             systemctl restart xray >/dev/null 2>&1
 
         elif [ "$STRIKE" -eq 2 ]; then
             BLOCK_TIME=$(date -d "+3 hour" "+%Y-%m-%d %H:%M:%S")
             echo "$BLOCK_TIME" > "$BLOCK_FILE"
             echo "LIMIT HIT: $SERVICE $USER ($COUNT/$LIMIT) STRIKE 2 IPs: [$IPS_COMMA] -> BLOCK until $BLOCK_TIME"
+            send_log "$USER" "$SERVICE" "$LIMIT" "$COUNT" "$IPS_COMMA" 2 "Block 3 hours" "$BLOCK_TIME"
             systemctl restart xray >/dev/null 2>&1
 
         else
             echo "LIMIT HIT: $SERVICE $USER ($COUNT/$LIMIT) STRIKE 3 IPs: [$IPS_COMMA] -> SUSPENDED"
+            send_log "$USER" "$SERVICE" "$LIMIT" "$COUNT" "$IPS_COMMA" 3 "Suspended 24 hours" ""
             echo "$(date '+%Y-%m-%d %H:%M:%S')" > "$SUSPEND_FILE"
             rm -f "$BLOCK_FILE"
 
@@ -129,6 +153,7 @@ check_ssh() {
 
         if [ "$COUNT" -gt "$LIMIT" ]; then
             echo "LIMIT HIT: ssh $USER ($COUNT/$LIMIT) IPs: [$SSH_IPS] -> KILL SESSION"
+            send_log "$USER" "ssh" "$LIMIT" "$COUNT" "$SSH_IPS" 1 "Kill SSH session" ""
             pkill -u "$USER" >/dev/null 2>&1
         fi
     done
