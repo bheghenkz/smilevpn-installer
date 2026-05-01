@@ -159,8 +159,8 @@ sed -i "s/__SS_WS_SEED__/$(openssl rand -hex 8)/g" /etc/xray/config.json
 sed -i "s/__SS_GRPC_SEED__/$(openssl rand -hex 8)/g" /etc/xray/config.json
 
 REALITY_KEYS=$(xray x25519)
-REALITY_PRIVATE=$(echo "$REALITY_KEYS" | awk '/Private key:/ {print $3}')
-REALITY_PUBLIC=$(echo "$REALITY_KEYS" | awk '/Public key:/ {print $3}')
+REALITY_PRIVATE=$(echo "$REALITY_KEYS" | awk -F': ' '/PrivateKey:/ {print $2}')
+REALITY_PUBLIC=$(echo "$REALITY_KEYS" | awk -F': ' '/Password \(PublicKey\):/ {print $2}')
 REALITY_SHORT=$(openssl rand -hex 4)
 
 echo "$REALITY_PUBLIC" > /etc/xray/reality_public
@@ -284,6 +284,23 @@ unzip -o trojan-go.zip
 install -m 755 trojan-go /usr/local/bin/trojan-go
 mkdir -p /etc/trojan-go
 
+TROJANGO_DEFAULT_PASSWORD=$(openssl rand -hex 8)
+cat > /etc/trojan-go/config.json <<TROJANGO_CONFIG
+{
+  "run_type": "server",
+  "local_addr": "0.0.0.0",
+  "local_port": 2087,
+  "remote_addr": "127.0.0.1",
+  "remote_port": 80,
+  "password": ["${TROJANGO_DEFAULT_PASSWORD}"],
+  "ssl": {
+    "cert": "/etc/xray/ssl/fullchain.pem",
+    "key": "/etc/xray/ssl/privkey.pem"
+  }
+}
+TROJANGO_CONFIG
+
+
 cat > /etc/systemd/system/trojan-go.service <<'TROJANGO_SERVICE'
 [Unit]
 Description=Trojan-Go Service
@@ -300,6 +317,7 @@ TROJANGO_SERVICE
 
 systemctl daemon-reload
 systemctl enable trojan-go
+systemctl restart trojan-go || true
 
 
 echo "🚀 Enable services..."
