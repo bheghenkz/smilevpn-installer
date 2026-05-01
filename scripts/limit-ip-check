@@ -87,6 +87,7 @@ fi
 
         COUNT=$(echo "$IPS" | sed '/^$/d' | wc -l)
         IPS_COMMA=$(echo "$IPS" | paste -sd "," -)
+[ -z "$IPS_COMMA" ] && IPS_COMMA="unknown"
 
         if [ "$COUNT" -le "$LIMIT" ]; then
             continue
