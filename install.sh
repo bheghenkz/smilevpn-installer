@@ -322,6 +322,10 @@ Restart=always
 WantedBy=multi-user.target
 TROJANGO_SERVICE
 
+echo "🔎 Testing Trojan-Go config..."
+timeout 3 /usr/local/bin/trojan-go -config /etc/trojan-go/config.json >/tmp/trojan-go-test.log 2>&1 || true
+cat /tmp/trojan-go-test.log || true
+
 systemctl daemon-reload
 systemctl enable trojan-go
 systemctl reset-failed trojan-go || true
