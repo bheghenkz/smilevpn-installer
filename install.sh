@@ -161,6 +161,13 @@ sed -i "s/__SS_GRPC_SEED__/$(openssl rand -hex 8)/g" /etc/xray/config.json
 REALITY_KEYS=$(xray x25519)
 REALITY_PRIVATE=$(echo "$REALITY_KEYS" | awk -F': ' '/PrivateKey:/ {print $2}')
 REALITY_PUBLIC=$(echo "$REALITY_KEYS" | awk -F': ' '/Password \(PublicKey\):/ {print $2}')
+
+if [ -z "$REALITY_PRIVATE" ] || [ -z "$REALITY_PUBLIC" ]; then
+    echo "❌ Failed to generate Reality keys"
+    echo "$REALITY_KEYS"
+    exit 1
+fi
+
 REALITY_SHORT=$(openssl rand -hex 4)
 
 echo "$REALITY_PUBLIC" > /etc/xray/reality_public
