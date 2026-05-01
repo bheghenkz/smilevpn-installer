@@ -297,7 +297,7 @@ cat > /etc/trojan-go/config.json <<TROJANGO_CONFIG
   "run_type": "server",
   "local_addr": "0.0.0.0",
   "local_port": 2087,
-  "remote_addr": "127.0.0.1",
+  "remote_addr": "www.cloudflare.com",
   "remote_port": 80,
   "password": ["${TROJANGO_DEFAULT_PASSWORD}"],
   "ssl": {
