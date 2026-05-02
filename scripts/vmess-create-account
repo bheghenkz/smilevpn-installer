@@ -59,12 +59,12 @@ JSON_TLS=$(jq -n \
     --arg username "${USERNAME}" \
     --arg domain "${DOMAIN}" \
     --arg uuid "${UUID}" \
-    '{v: "2", ps: $username, add: $domain, port: "443", id: $uuid, aid: "0", net: "ws", path: "/vmess/multipath", type: "none", host: "", tls: "tls"}')
+    '{v: "2", ps: $username, add: $domain, port: "443", id: $uuid, aid: "0", net: "ws", path: "/vmess", type: "none", host: "", tls: "tls"}')
 JSON_NTLS=$(jq -n \
     --arg username "${USERNAME}" \
     --arg domain "${DOMAIN}" \
     --arg uuid "${UUID}" \
-    '{v: "2", ps: $username, add: $domain, port: "80", id: $uuid, aid: "0", net: "ws", path: "/vmess/multipath", type: "none", host: "", tls: "tls"}')
+    '{v: "2", ps: $username, add: $domain, port: "80", id: $uuid, aid: "0", net: "ws", path: "/vmess", type: "none", host: "", tls: "tls"}')
 JSON_GRPC=$(jq -n \
     --arg username "${USERNAME}" \
     --arg domain "${DOMAIN}" \
@@ -99,7 +99,7 @@ cat >/var/www/html/vmess-$USERNAME.txt <<-END
   servername: ${DOMAIN}
   network: ws
   ws-opts:
-    path: /vmess/multipath
+    path: /vmess
     headers:
   Host: ${DOMAIN}
 
@@ -118,7 +118,7 @@ cat >/var/www/html/vmess-$USERNAME.txt <<-END
   servername: ${DOMAIN}
   network: ws
   ws-opts:
-    path: /vmess/multipath
+    path: /vmess
     headers:
   Host: ${DOMAIN}
 
@@ -172,7 +172,7 @@ City       : ${CITY}
 TLS        : 443
 Non TLS    : 80
 gRPC       : 443
-Path       : /vmess/multipath
+Path       : /vmess
 Service    : vmess-grpc
 
 🔗 LINK

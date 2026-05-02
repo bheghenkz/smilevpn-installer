@@ -41,9 +41,9 @@ TLS="443"
 # shellcheck disable=SC2002
 NTLS="80"
 UUID=$(cat /proc/sys/kernel/random/uuid)
-VLESS_LINK_TLS="vless://${UUID}@${DOMAIN}:${TLS}?path=/vless/multipath&security=tls&encryption=none&type=ws#${USERNAME}"
-VLESS_LINK_NTLS="vless://${UUID}@${DOMAIN}:${NTLS}?path=/vless/multipath&encryption=none&type=ws#${USERNAME}"
-VLESS_LINK_GRPC="vless://${UUID}@${DOMAIN}:${TLS}?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless-grpc&sni=bug.com#${USERNAME}"
+VLESS_LINK_TLS="vless://${UUID}@${DOMAIN}:${TLS}?path=/vless&security=tls&encryption=none&type=ws#${USERNAME}"
+VLESS_LINK_NTLS="vless://${UUID}@${DOMAIN}:${NTLS}?path=/vless&encryption=none&type=ws#${USERNAME}"
+VLESS_LINK_GRPC="vless://${UUID}@${DOMAIN}:${TLS}?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless-grpc&sni=${DOMAIN}#${USERNAME}"
 
 # shellcheck disable=SC2027
 # shellcheck disable=SC2086
@@ -76,7 +76,7 @@ cat >/var/www/html/vless-$USERNAME.txt <<-END
   servername: ${DOMAIN}
   network: ws
   ws-opts:
-    path: /vless/multipath
+    path: /vless
     headers:
   Host: ${DOMAIN}
 
@@ -93,7 +93,7 @@ cat >/var/www/html/vless-$USERNAME.txt <<-END
   servername: ${DOMAIN}
   network: ws
   ws-opts:
-    path: /vless/multipath
+    path: /vless
     headers:
       Host: ${DOMAIN}
   udp: true
@@ -148,7 +148,7 @@ City       : ${CITY}
 TLS        : 443
 Non TLS    : 80
 gRPC       : 443
-Path       : /vless/multipath
+Path       : /vless
 Service    : vless-grpc
 
 🔗 LINK

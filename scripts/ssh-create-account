@@ -59,9 +59,9 @@ Port OVPN TCP    : 1194
 Port OVPN UDP    : 2200
 BadVPN UDP       : 7100, 7300, 7300
 =================================
-Payload WSS: GET wss://BUG.COM/ HTTP/1.1[crlf]Host: $DOMAIN[crlf]Upgrade: websocket[crlf][crlf] 
+Payload WSS: GET wss://$DOMAIN/ HTTP/1.1[crlf]Host: $DOMAIN[crlf]Upgrade: websocket[crlf][crlf] 
 =================================
-Payload Enchanced: PATCH / HTTP/1.1[crlf]Host: [host][crlf]Host: bug.com[crlf]Upgrade: websocket[crlf]HTTP/ 3600[crlf]Sec-WebSocket-Extensions: superspeed[crlf]
+Payload Enchanced: PATCH / HTTP/1.1[crlf]Host: [host][crlf]Host: ${DOMAIN}[crlf]Upgrade: websocket[crlf]HTTP/ 3600[crlf]Sec-WebSocket-Extensions: superspeed[crlf]
 =================================
 SSH TLS/SNI : $DOMAIN:443@$USERNAME:$PASSWORD
 SSH Non TLS : $DOMAIN:80@$USERNAME:$PASSWORD

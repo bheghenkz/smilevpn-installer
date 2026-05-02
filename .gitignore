@@ -2,3 +2,9 @@
 ssl/
 *.pem
 /tmp/
+
+# local audit/backups
+audit-report.txt
+audit-smilevpn.sh
+backups/
+tmp/

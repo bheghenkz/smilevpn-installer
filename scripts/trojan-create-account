@@ -42,9 +42,9 @@ TLS="443"
 # shellcheck disable=SC2002
 NTLS="80"
 UUID=$(cat /proc/sys/kernel/random/uuid)
-TROJAN_LINK_TLS="trojan://${UUID}@isi_bug_disini:${TLS}?path=%2Ftrojan-ws%2Fmultipath&security=tls&host=${DOMAIN}&type=ws&sni=${DOMAIN}#${USERNAME}"
-TROJAN_LINK_GRPC="trojan://${UUID}@${DOMAIN}:${TLS}?mode=gun&security=tls&type=grpc&serviceName=trojan-grpc&sni=bug.com#${USERNAME}"
-TROJAN_LINK_NTLS="trojan://${UUID}@isi_bug_disini:${NTLS}?path=%2Ftrojan-ws%2Fmultipath&security=none&host=${DOMAIN}&type=ws#${USERNAME}"
+TROJAN_LINK_TLS="trojan://${UUID}@${DOMAIN}:${TLS}?path=%2Ftrojan-ws&security=tls&host=${DOMAIN}&type=ws&sni=${DOMAIN}#${USERNAME}"
+TROJAN_LINK_GRPC="trojan://${UUID}@${DOMAIN}:${TLS}?mode=gun&security=tls&type=grpc&serviceName=trojan-grpc&sni=${DOMAIN}#${USERNAME}"
+TROJAN_LINK_NTLS="trojan://${UUID}@${DOMAIN}:${NTLS}?path=%2Ftrojan-ws&security=none&host=${DOMAIN}&type=ws#${USERNAME}"
 
 # shellcheck disable=SC2027
 # shellcheck disable=SC2086
@@ -77,7 +77,7 @@ cat >/var/www/html/trojan-$USERNAME.txt <<-END
   skip-cert-verify: true
   udp: true
   ws-opts:
-    path: /trojan-ws/multipath
+    path: /trojan-ws
     headers:
   Host: ${DOMAIN}
 
@@ -117,7 +117,7 @@ City       : ${CITY}
 TLS        : ${TLS}
 Non TLS    : ${NTLS}
 gRPC       : ${TLS}
-Path       : /trojan-ws/multipath
+Path       : /trojan-ws
 Service    : trojan-grpc
 
 🔗 LINK
