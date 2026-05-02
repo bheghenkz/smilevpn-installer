@@ -1,0 +1,30 @@
+#!/bin/bash
+SERVICE="$1"
+USER="$2"
+CONF="/etc/xray/config.json"
+STATE="/etc/smilevpn-limit"
+mkdir -p "$STATE"
+
+cp "$CONF" "$STATE/$SERVICE-$USER.config.backup" 2>/dev/null || true
+
+python3 <<PY
+from pathlib import Path
+import re, uuid, secrets
+
+user="$USER"
+p=Path("$CONF")
+s=p.read_text()
+
+def repl(line):
+    if f'"email": "{user}"' not in line:
+        return line
+    line=re.sub(r'"password":\s*"[^"]+"', f'"password": "BLOCKED-{secrets.token_hex(12)}"', line)
+    line=re.sub(r'"id":\s*"[^"]+"', f'"id": "{uuid.uuid4()}"', line)
+    return line
+
+p.write_text("".join(repl(l) for l in s.splitlines(True)))
+PY
+
+cp /etc/xray/config.json /usr/local/etc/xray/config.json
+chmod 644 /usr/local/etc/xray/config.json
+xray run -test -config /usr/local/etc/xray/config.json >/tmp/xray-block-test.log 2>&1 && systemctl restart xray

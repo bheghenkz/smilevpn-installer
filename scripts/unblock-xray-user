@@ -1,0 +1,16 @@
+#!/bin/bash
+SERVICE="$1"
+USER="$2"
+CONF="/etc/xray/config.json"
+STATE="/etc/smilevpn-limit"
+BACKUP="$STATE/$SERVICE-$USER.config.backup"
+
+[ -f "$BACKUP" ] || exit 0
+
+cp "$BACKUP" "$CONF"
+cp "$CONF" /usr/local/etc/xray/config.json
+chmod 644 /usr/local/etc/xray/config.json
+
+xray run -test -config /usr/local/etc/xray/config.json >/tmp/xray-unblock-test.log 2>&1 && systemctl restart xray
+
+rm -f "$BACKUP"
