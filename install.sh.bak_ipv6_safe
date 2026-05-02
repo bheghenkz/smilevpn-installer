@@ -43,21 +43,6 @@ mkdir -p /etc/xray/ssl
 mkdir -p /var/log/xray
 mkdir -p /var/www/html
 
-# IPv6 safe mode: default OFF to prevent IPv6 leak/routing issues.
-# Enable manually with: ENABLE_IPV6=true bash install.sh domain.com
-ENABLE_IPV6="${ENABLE_IPV6:-false}"
-if [ "$ENABLE_IPV6" != "true" ]; then
-    echo "🌐 Disabling IPv6 safe mode..."
-    cat >/etc/sysctl.d/99-smilevpn-disable-ipv6.conf <<EOF
-net.ipv6.conf.all.disable_ipv6 = 1
-net.ipv6.conf.default.disable_ipv6 = 1
-net.ipv6.conf.lo.disable_ipv6 = 1
-EOF
-    sysctl --system >/dev/null 2>&1 || true
-else
-    echo "🌐 IPv6 enabled by admin"
-fi
-
 echo "$DOMAIN" > /etc/xray/domain
 
 SERVER_IP="$(curl -4 -s https://ipv4.icanhazip.com | tr -d '\n' || true)"
@@ -286,7 +271,7 @@ cat > /etc/cron.d/smilevpn <<'CRON'
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 */5 * * * * root /usr/local/sbin/smilevpn/xp >/dev/null 2>&1
-* * * * * root /usr/local/sbin/smilevpn/limit-ip-check >/dev/null 2>&1
+* * * * * root /usr/local/sbin/smilevpn/limit-ip-check >> /var/log/smilevpn-limit.log 2>&1
 CRON
 chmod 644 /etc/cron.d/smilevpn
 systemctl enable cron
