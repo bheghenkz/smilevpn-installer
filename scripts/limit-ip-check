@@ -94,6 +94,12 @@ fi
             NOW_TS=$(now_ts)
 
             if [ "$BLOCK_TS" -gt "$NOW_TS" ]; then
+                NOTIFY_FILE="$STATE_DIR/$SERVICE-$USER.notified"
+                if [ ! -f "$NOTIFY_FILE" ]; then
+                    STRIKE_NOW=$(cat "$STRIKE_FILE" 2>/dev/null || echo 1)
+                    send_log "$USER" "$SERVICE" "$LIMIT" "$((LIMIT + 1))" "blocked" "$STRIKE_NOW" "Block active" "$BLOCK_UNTIL"
+                    date +%s > "$NOTIFY_FILE"
+                fi
                 continue
             else
                 rm -f "$BLOCK_FILE"
