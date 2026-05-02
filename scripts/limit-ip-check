@@ -192,3 +192,34 @@ check_xray "/etc/shadowsocks" "shadowsocks"
 check_xray "/etc/vlessreality" "vless-reality"
 check_xray "/etc/trojango" "trojango"
 check_ssh
+
+clean_orphan_limit_state() {
+    [ -d "$STATE_DIR" ] || return
+    [ -f /etc/xray/config.json ] || return
+
+    for f in "$STATE_DIR"/*.{strike,blocked_until,suspended,config.backup}; do
+        [ -e "$f" ] || continue
+
+        base="$(basename "$f")"
+        name="${base%.strike}"
+        name="${name%.blocked_until}"
+        name="${name%.suspended}"
+        name="${name%.config.backup}"
+
+        user="${name#*-}"
+        service="${name%%-*}"
+
+        [ -n "$user" ] || continue
+        [ -n "$service" ] || continue
+
+        if ! grep -q "\"email\": \"$user\"" /etc/xray/config.json; then
+            rm -f "$STATE_DIR/$service-$user.strike" \
+                  "$STATE_DIR/$service-$user.blocked_until" \
+                  "$STATE_DIR/$service-$user.suspended" \
+                  "$STATE_DIR/$service-$user.config.backup"
+            echo "AUTO CLEAN ORPHAN: $service $user old limit state removed"
+        fi
+    done
+}
+
+clean_orphan_limit_state
