@@ -1,153 +1,96 @@
 #!/bin/bash
-
-
-
-USERNAME=$1
-
-EXPIRED_AT=$2
-# SUPPORT TRIAL 1 JAM
-if [ "$EXPIRED_AT" = "trial" ]; then
-    EXPIRED_AT=$(date -d "+1 hour" "+%Y-%m-%d %H:%M")
-fi
-IPLIMIT="${3:-5}"
-
-IP=$(curl -s ipv4.icanhazip.com)
-ISP=$(cat /etc/xray/isp)
-CITY=$(cat /etc/xray/city)
+set -e
+USERNAME="$1"; EXPIRED_AT="$2"; IPLIMIT="${3:-5}"
+if [ -z "$USERNAME" ] || [ -z "$EXPIRED_AT" ]; then echo "Usage: vmess-create-account USERNAME expired|trial IPLIMIT"; exit 1; fi
+[ "$EXPIRED_AT" = "trial" ] && EXPIRED_AT=$(date -d "+1 hour" "+%Y-%m-%d %H:%M")
+[ "$IPLIMIT" = "0" ] && IPLIMIT="9999"
+IP=$(cat /etc/xray/ip 2>/dev/null || curl -4 -s ipv4.icanhazip.com || true)
+ISP=$(cat /etc/xray/isp 2>/dev/null || echo "Unknown ISP")
+CITY=$(cat /etc/xray/city 2>/dev/null || echo "Unknown City")
 DOMAIN=$(cat /etc/xray/domain)
-
-
-if [ ! -e /etc/vmess ]; then
-mkdir -p /etc/vmess
-fi
-if [ ! -e /etc/vmess/akun ]; then
-mkdir -p /etc/vmess/akun
-fi
-if [ ${IPLIMIT} = '0' ]; then
-IPLIMIT="9999"
-fi
-d=$((${c} * 1024 * 1024 * 1024))
-echo "${IPLIMIT}" >/etc/vmess/${USERNAME}IP
-# shellcheck disable=SC2002
-TLS="443"
-# shellcheck disable=SC2002
-NTLS="80"
 UUID=$(cat /proc/sys/kernel/random/uuid)
-# shellcheck disable=SC2027
-# shellcheck disable=SC2086
-# shellcheck disable=SC1004
-sed -i '/#vmess$/a\#vm '"${USERNAME} ${EXPIRED_AT}"'\
-,{"id": "'""${UUID}""'","alterId": '"0"',"email": "'""${USERNAME}""'"}' /etc/xray/config.json
-# shellcheck disable=SC2027
-# shellcheck disable=SC2086
-# shellcheck disable=SC1004
-sed -i '/#vmessgrpc$/a\#vmg '"${USERNAME} ${EXPIRED_AT}"'\
-,{"id": "'""${UUID}""'","alterId": '"0"',"email": "'""${USERNAME}""'"}' /etc/xray/config.json
-
-
-
-
-JSON_TLS=$(jq -n \
-    --arg username "${USERNAME}" \
-    --arg domain "${DOMAIN}" \
-    --arg uuid "${UUID}" \
-    '{v: "2", ps: $username, add: $domain, port: "443", id: $uuid, aid: "0", net: "ws", path: "/vmess", type: "none", host: "", tls: "tls"}')
-JSON_NTLS=$(jq -n \
-    --arg username "${USERNAME}" \
-    --arg domain "${DOMAIN}" \
-    --arg uuid "${UUID}" \
-    '{v: "2", ps: $username, add: $domain, port: "80", id: $uuid, aid: "0", net: "ws", path: "/vmess", type: "none", host: "", tls: "tls"}')
-JSON_GRPC=$(jq -n \
-    --arg username "${USERNAME}" \
-    --arg domain "${DOMAIN}" \
-    --arg uuid "${UUID}" \
-    '{v: "2", ps: $username, add: $domain, port: "443", id: $uuid, aid: "0", net: "grpc", path: "vmess-grpc", type: "none", host: "", tls: "tls"}')
-VMESS_LINK_TLS="vmess://$(echo ${JSON_TLS} | base64 -w 0)"
-VMESS_LINK_NTLS="vmess://$(echo ${JSON_NTLS} | base64 -w 0)"
-VMESS_LINK_GRPC="vmess://$(echo ${JSON_GRPC} | base64 -w 0)"
-
-systemctl restart xray > /dev/null 2>&1
-
-service cron restart > /dev/null 2>&1
-
-
-cat >/var/www/html/vmess-$USERNAME.txt <<-END
-
-=========================
-  SmileVPN TUNNELING 
-=========================
-# Format Vmess WS TLS
-
-- name: $USERNAME
-  type: vmess
+mkdir -p /etc/vmess/akun /var/www/html
+echo "$IPLIMIT" >/etc/vmess/${USERNAME}IP
+sed -i "/^#vm ${USERNAME} /,/^,{/d" /etc/xray/config.json
+sed -i "/^#vmg ${USERNAME} /,/^,{/d" /etc/xray/config.json
+sed -i '/#vmess$/a\#vm '"$USERNAME $EXPIRED_AT"'\
+,{"id": "'""${UUID}""'","alterId": 0,"email": "'""${USERNAME}""'"}' /etc/xray/config.json
+sed -i '/#vmessgrpc$/a\#vmg '"$USERNAME $EXPIRED_AT"'\
+,{"id": "'""${UUID}""'","alterId": 0,"email": "'""${USERNAME}""'"}' /etc/xray/config.json
+sync_xray() {
+    mkdir -p /usr/local/etc/xray
+    mkdir -p /usr/local/etc/xray
+cp /etc/xray/config.json /usr/local/etc/xray/config.json
+chmod 755 /usr/local/etc /usr/local/etc/xray
+chmod 644 /usr/local/etc/xray/config.json
+    if command -v xray >/dev/null 2>&1; then
+        xray run -test -config /usr/local/etc/xray/config.json >/tmp/smilevpn-xray-test.log 2>&1 || {
+            cat /tmp/smilevpn-xray-test.log
+            exit 1
+        }
+    fi
+    systemctl restart xray >/dev/null 2>&1 || true
+}
+sync_xray
+JSON_TLS=$(jq -nc --arg username "$USERNAME" --arg domain "$DOMAIN" --arg uuid "$UUID" '{v:"2",ps:$username,add:$domain,port:"443",id:$uuid,aid:"0",net:"ws",path:"/vmess",type:"none",host:$domain,tls:"tls"}')
+JSON_NTLS=$(jq -nc --arg username "$USERNAME" --arg domain "$DOMAIN" --arg uuid "$UUID" '{v:"2",ps:$username,add:$domain,port:"80",id:$uuid,aid:"0",net:"ws",path:"/vmess",type:"none",host:$domain,tls:""}')
+JSON_GRPC=$(jq -nc --arg username "$USERNAME" --arg domain "$DOMAIN" --arg uuid "$UUID" '{v:"2",ps:$username,add:$domain,port:"443",id:$uuid,aid:"0",net:"grpc",path:"vmess-grpc",type:"none",host:$domain,tls:"tls"}')
+VMESS_LINK_TLS="vmess://$(echo -n "$JSON_TLS" | base64 -w0)"
+VMESS_LINK_NTLS="vmess://$(echo -n "$JSON_NTLS" | base64 -w0)"
+VMESS_LINK_GRPC="vmess://$(echo -n "$JSON_GRPC" | base64 -w0)"
+cat >/var/www/html/vmess-${USERNAME}.txt <<END
+proxies:
+- name: ${USERNAME}-VMESS-WS-TLS
   server: ${DOMAIN}
   port: 443
+  type: vmess
   uuid: ${UUID}
   alterId: 0
   cipher: auto
-  udp: true
   tls: true
-  skip-cert-verify: true
   servername: ${DOMAIN}
   network: ws
   ws-opts:
     path: /vmess
     headers:
-  Host: ${DOMAIN}
+      Host: ${DOMAIN}
+  udp: true
 
-# Format Vmess WS Non TLS
-
-- name: $USERNAME
-  type: vmess
+- name: ${USERNAME}-VMESS-WS-NTLS
   server: ${DOMAIN}
   port: 80
+  type: vmess
   uuid: ${UUID}
   alterId: 0
   cipher: auto
-  udp: true
   tls: false
-  skip-cert-verify: false
-  servername: ${DOMAIN}
   network: ws
   ws-opts:
     path: /vmess
     headers:
-  Host: ${DOMAIN}
+      Host: ${DOMAIN}
+  udp: true
 
-# Format Vmess gRPC
-
-- name: Vmess-$user-gRPC (SNI)
+- name: ${USERNAME}-VMESS-GRPC
   server: ${DOMAIN}
   port: 443
   type: vmess
   uuid: ${UUID}
   alterId: 0
   cipher: auto
-  network: grpc
   tls: true
   servername: ${DOMAIN}
-  skip-cert-verify: true
+  network: grpc
   grpc-opts:
     grpc-service-name: vmess-grpc
+  udp: true
 
-=========================
- Link Akun Vmess                   
-=========================
-Link TLS         : 
+# Links
 ${VMESS_LINK_TLS}
-=========================
-Link none TLS    : 
 ${VMESS_LINK_NTLS}
-=========================
-Link GRPC        : 
 ${VMESS_LINK_GRPC}
-=========================
-
 END
-
-
-
-cat > /etc/vmess/akun/log-create-${USERNAME}.log <<EOF
+cat >/etc/vmess/akun/log-create-${USERNAME}.log <<END
 🔐 VMESS ACCOUNT
 
 Username   : ${USERNAME}
@@ -158,6 +101,7 @@ Limit IP   : ${IPLIMIT} IP
 🌐 SERVER
 Domain     : ${DOMAIN}
 IP         : ${IP}
+ISP        : ${ISP}
 City       : ${CITY}
 
 🔌 PORT
@@ -168,7 +112,7 @@ Path       : /vmess
 Service    : vmess-grpc
 
 🔗 LINK
-OpenClash  : https://${DOMAIN}:81/vmess-${USERNAME}.txt
+OpenClash  : https://${DOMAIN}/vmess-${USERNAME}.txt
 
 TLS
 ${VMESS_LINK_TLS}
@@ -178,6 +122,5 @@ ${VMESS_LINK_NTLS}
 
 gRPC
 ${VMESS_LINK_GRPC}
-EOF
-
+END
 cat /etc/vmess/akun/log-create-${USERNAME}.log

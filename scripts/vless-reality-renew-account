@@ -1,14 +1,23 @@
 #!/bin/bash
-
-USERNAME=$1
-EXPIRED_AT=$2
-
-if [ -z "$USERNAME" ] || [ -z "$EXPIRED_AT" ]; then
-    echo "Usage: vless-reality-renew-account USERNAME YYYY-MM-DD"
-    exit 1
-fi
-
-EXP=$(grep -wE "^#vr ${USERNAME}" /etc/xray/config.json | cut -d ' ' -f 3 | head -n1)
+set -e
+USERNAME="$1"; EXPIRED_AT="$2"
+if [ -z "$USERNAME" ] || [ -z "$EXPIRED_AT" ]; then echo "Usage: vless-reality-renew-account USERNAME YYYY-MM-DD"; exit 1; fi
+EXP=$(grep -wE "^#vr ${USERNAME}" /etc/xray/config.json | awk '{print $3}' | head -n1)
+if [ -z "$EXP" ]; then echo "User not found: $USERNAME"; exit 1; fi
 sed -i "s/#vr ${USERNAME} ${EXP}/#vr ${USERNAME} ${EXPIRED_AT}/g" /etc/xray/config.json
-
-systemctl restart xray >/dev/null 2>&1
+[ -f /etc/vlessreality/akun/log-create-${USERNAME}.log ] && sed -i "s/^Expired.*/Expired    : ${EXPIRED_AT}/" /etc/vlessreality/akun/log-create-${USERNAME}.log || true
+sync_xray() {
+    mkdir -p /usr/local/etc/xray
+    mkdir -p /usr/local/etc/xray
+cp /etc/xray/config.json /usr/local/etc/xray/config.json
+chmod 755 /usr/local/etc /usr/local/etc/xray
+chmod 644 /usr/local/etc/xray/config.json
+    if command -v xray >/dev/null 2>&1; then
+        xray run -test -config /usr/local/etc/xray/config.json >/tmp/smilevpn-xray-test.log 2>&1 || {
+            cat /tmp/smilevpn-xray-test.log
+            exit 1
+        }
+    fi
+    systemctl restart xray >/dev/null 2>&1 || true
+}
+sync_xray

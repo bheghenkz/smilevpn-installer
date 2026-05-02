@@ -35,11 +35,12 @@ apt-get remove --purge -y apache2 apache2-bin apache2-data apache2-utils 2>/dev/
 
 echo "📦 Installing packages..."
 apt-get update -y
-apt-get install -y curl wget unzip nginx ca-certificates socat cron openssl
+apt-get install -y curl wget unzip nginx ca-certificates socat cron openssl jq
 
 echo "📁 Setup folders..."
 mkdir -p /etc/xray
 mkdir -p /etc/xray/ssl
+mkdir -p /usr/local/etc/xray
 mkdir -p /var/log/xray
 mkdir -p /var/www/html
 
@@ -162,7 +163,10 @@ sed -i "s|IP_ADDRESS|$SERVER_IP|g" /etc/xray/config.json
 sed -i "s|__IP_ADDRESS__|$SERVER_IP|g" /etc/xray/config.json
 sed -i "s|__SERVER_IP__|$SERVER_IP|g" /etc/xray/config.json
 
+mkdir -p /usr/local/etc/xray
 cp /etc/xray/config.json /usr/local/etc/xray/config.json
+chmod 755 /usr/local/etc /usr/local/etc/xray
+chmod 644 /usr/local/etc/xray/config.json
 
 sed -i "s/__VLESS_SEED__/$(cat /proc/sys/kernel/random/uuid)/g" /etc/xray/config.json
 sed -i "s/__VMESS_SEED__/$(cat /proc/sys/kernel/random/uuid)/g" /etc/xray/config.json
@@ -192,7 +196,10 @@ sed -i "s|__REALITY_SEED__|$(cat /proc/sys/kernel/random/uuid)|g" /etc/xray/conf
 sed -i "s|__REALITY_PRIVATE__|${REALITY_PRIVATE}|g" /etc/xray/config.json
 sed -i "s|__REALITY_SHORT__|${REALITY_SHORT}|g" /etc/xray/config.json
 
+mkdir -p /usr/local/etc/xray
 cp /etc/xray/config.json /usr/local/etc/xray/config.json
+chmod 755 /usr/local/etc /usr/local/etc/xray
+chmod 644 /usr/local/etc/xray/config.json
 
 echo "🌐 Installing Nginx config..."
 sed "s/DOMAIN/$DOMAIN/g" config/nginx.conf > /etc/nginx/sites-enabled/default
@@ -355,6 +362,12 @@ systemctl is-active --quiet trojan-go || {
 echo "🚀 Enable services..."
 systemctl daemon-reload
 systemctl enable xray
+mkdir -p /usr/local/etc/xray
+mkdir -p /usr/local/etc/xray
+cp /etc/xray/config.json /usr/local/etc/xray/config.json
+chmod 755 /usr/local/etc /usr/local/etc/xray
+chmod 644 /usr/local/etc/xray/config.json
+xray run -test -config /usr/local/etc/xray/config.json
 systemctl restart xray
 systemctl enable nginx
 nginx -t

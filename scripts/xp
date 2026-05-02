@@ -70,4 +70,6 @@ expire_xray "tr" "trg" "/etc/trojan" "trojan"
 expire_xray "ss" "ssg" "/etc/shadowsocks" "shadowsocks"
 expire_xray "vr" "vr" "/etc/vlessreality" "vless-reality"
 
+mkdir -p /usr/local/etc/xray
+cp /etc/xray/config.json /usr/local/etc/xray/config.json 2>/dev/null || true
 systemctl restart xray 2>/dev/null || true

@@ -63,7 +63,8 @@ if [ -f "$SUSPEND_FILE" ]; then
         echo "UNSUSPEND: $SERVICE $USER (24h passed)"
         rm -f "$SUSPEND_FILE"
         echo "2" > "$STRIKE_FILE"
-        systemctl restart xray >/dev/null 2>&1
+        cp /etc/xray/config.json /usr/local/etc/xray/config.json 2>/dev/null || true
+            systemctl restart xray >/dev/null 2>&1
     else
         continue
     fi
@@ -102,6 +103,7 @@ fi
             echo "$BLOCK_TIME" > "$BLOCK_FILE"
             echo "LIMIT HIT: $SERVICE $USER ($COUNT/$LIMIT) STRIKE 1 IPs: [$IPS_COMMA] -> BLOCK until $BLOCK_TIME"
             send_log "$USER" "$SERVICE" "$LIMIT" "$COUNT" "$IPS_COMMA" 1 "Block 1 hour" "$BLOCK_TIME"
+            cp /etc/xray/config.json /usr/local/etc/xray/config.json 2>/dev/null || true
             systemctl restart xray >/dev/null 2>&1
 
         elif [ "$STRIKE" -eq 2 ]; then
@@ -109,6 +111,7 @@ fi
             echo "$BLOCK_TIME" > "$BLOCK_FILE"
             echo "LIMIT HIT: $SERVICE $USER ($COUNT/$LIMIT) STRIKE 2 IPs: [$IPS_COMMA] -> BLOCK until $BLOCK_TIME"
             send_log "$USER" "$SERVICE" "$LIMIT" "$COUNT" "$IPS_COMMA" 2 "Block 3 hours" "$BLOCK_TIME"
+            cp /etc/xray/config.json /usr/local/etc/xray/config.json 2>/dev/null || true
             systemctl restart xray >/dev/null 2>&1
 
         else
@@ -129,6 +132,7 @@ fi
                     ;;
             esac
 
+            cp /etc/xray/config.json /usr/local/etc/xray/config.json 2>/dev/null || true
             systemctl restart xray >/dev/null 2>&1
         fi
     done

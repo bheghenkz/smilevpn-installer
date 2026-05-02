@@ -1,13 +1,22 @@
 #!/bin/bash
-
-USERNAME=$1
-EXPIRED_AT=$2
-
-sed -i "/^#vl ${USERNAME} ${EXPIRED_AT}/,/^,{/d" /etc/xray/config.json
-sed -i "/^#vlg ${USERNAME} ${EXPIRED_AT}/,/^,{/d" /etc/xray/config.json
-
-rm -f /etc/vless/${USERNAME}IP >/dev/null 2>&1
-rm -f /var/www/html/vless-${USERNAME}.txt >/dev/null 2>&1
-rm -f /etc/vless/akun/log-create-${USERNAME}.log
-rm -f /etc/limit/vless/${USERNAME}
-systemctl restart xray > /dev/null 2>&1
+set -e
+USERNAME="$1"
+if [ -z "$USERNAME" ]; then echo "Usage: vless-delete-account USERNAME"; exit 1; fi
+sed -i "/^#vl ${USERNAME} /,/^,{/d" /etc/xray/config.json
+sed -i "/^#vlg ${USERNAME} /,/^,{/d" /etc/xray/config.json
+rm -f /etc/vless/${USERNAME}IP /etc/vless/${USERNAME} /etc/vless/akun/log-create-${USERNAME}.log /var/www/html/vless-${USERNAME}.txt /etc/limit/vless/${USERNAME}
+sync_xray() {
+    mkdir -p /usr/local/etc/xray
+    mkdir -p /usr/local/etc/xray
+cp /etc/xray/config.json /usr/local/etc/xray/config.json
+chmod 755 /usr/local/etc /usr/local/etc/xray
+chmod 644 /usr/local/etc/xray/config.json
+    if command -v xray >/dev/null 2>&1; then
+        xray run -test -config /usr/local/etc/xray/config.json >/tmp/smilevpn-xray-test.log 2>&1 || {
+            cat /tmp/smilevpn-xray-test.log
+            exit 1
+        }
+    fi
+    systemctl restart xray >/dev/null 2>&1 || true
+}
+sync_xray

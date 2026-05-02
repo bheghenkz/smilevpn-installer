@@ -3,14 +3,14 @@
 
 
 USERNAME=$1
+EXPIRED_AT="${2:-1}"
+IPLIMIT="${3:-5}"
+PASSWORD="$(tr -dc A-Za-z0-9 </dev/urandom | head -c 10)"
 
-PASSWORD=$2
-EXPIRED_AT=$3
 # SUPPORT TRIAL 1 JAM
 if [ "$EXPIRED_AT" = "trial" ]; then
     EXPIRED_AT=$(date -d "+1 hour" "+%Y-%m-%d %H:%M")
 fi
-IPLIMIT="${4:-5}"
 
 IP=$(curl -s ipv4.icanhazip.com)
 ISP=$(cat /etc/xray/isp)
@@ -57,7 +57,7 @@ Port OVPN WS SSL : 443
 Port OVPN SSL    : 443
 Port OVPN TCP    : 1194
 Port OVPN UDP    : 2200
-BadVPN UDP       : 7100, 7300, 7300
+BadVPN UDP       : 7300, 7301, 7302
 =================================
 Payload WSS: GET wss://$DOMAIN/ HTTP/1.1[crlf]Host: $DOMAIN[crlf]Upgrade: websocket[crlf][crlf] 
 =================================
@@ -66,7 +66,7 @@ Payload Enchanced: PATCH / HTTP/1.1[crlf]Host: [host][crlf]Host: ${DOMAIN}[crlf]
 SSH TLS/SNI : $DOMAIN:443@$USERNAME:$PASSWORD
 SSH Non TLS : $DOMAIN:80@$USERNAME:$PASSWORD
 =================================
-OVPN Download : https://$DOMAIN:81/
+OVPN Download : https://$DOMAIN/
 =================================
 Berakhir Pada    : $EXPIRED_AT
 =================================
@@ -96,8 +96,8 @@ SSL WS     : 443
 UDP        : 1-65535
 
 🔗 LINK
-OVPN       : https://${DOMAIN}:81/
-Save       : https://${DOMAIN}:81/ssh-${USERNAME}.txt
+OVPN       : https://${DOMAIN}/
+Save       : https://${DOMAIN}/ssh-${USERNAME}.txt
 HTTP UDP   : ${DOMAIN}:1-65535@${USERNAME}:${PASSWORD}
 
 📡 PAYLOAD
