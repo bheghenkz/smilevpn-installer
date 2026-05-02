@@ -1,30 +1,62 @@
 #!/bin/bash
+set -e
+
 SERVICE="$1"
 USER="$2"
 CONF="/etc/xray/config.json"
+RCONF="/usr/local/etc/xray/config.json"
 STATE="/etc/smilevpn-limit"
 mkdir -p "$STATE"
 
-cp "$CONF" "$STATE/$SERVICE-$USER.config.backup" 2>/dev/null || true
+[ -n "$SERVICE" ] && [ -n "$USER" ] || exit 1
+[ -f "$CONF" ] || exit 1
+
+SAFE_USER="$(echo "$USER" | tr -cd 'A-Za-z0-9_.@-')"
+SAFE_SERVICE="$(echo "$SERVICE" | tr -cd 'A-Za-z0-9_.@-')"
+BACKUP="$STATE/$SAFE_SERVICE-$SAFE_USER.config.backup"
+
+[ -f "$BACKUP" ] || cp "$CONF" "$BACKUP"
+
+TMP="$(mktemp)"
+cp "$CONF" "$TMP"
 
 python3 <<PY
 from pathlib import Path
-import re, uuid, secrets
+import re, uuid, secrets, sys
 
-user="$USER"
-p=Path("$CONF")
-s=p.read_text()
+user = "$USER"
+p = Path("$TMP")
+s = p.read_text()
+changed = 0
+out = []
 
-def repl(line):
-    if f'"email": "{user}"' not in line:
-        return line
-    line=re.sub(r'"password":\s*"[^"]+"', f'"password": "BLOCKED-{secrets.token_hex(12)}"', line)
-    line=re.sub(r'"id":\s*"[^"]+"', f'"id": "{uuid.uuid4()}"', line)
-    return line
+for line in s.splitlines(True):
+    if f'"email": "{user}"' in line:
+        new = line
+        new = re.sub(r'"password":\s*"[^"]+"', '"password": "BLOCKED-' + secrets.token_hex(16) + '"', new)
+        new = re.sub(r'"id":\s*"[^"]+"', '"id": "' + str(uuid.uuid4()) + '"', new)
+        if new != line:
+            changed += 1
+        line = new
+    out.append(line)
 
-p.write_text("".join(repl(l) for l in s.splitlines(True)))
+if changed == 0:
+    sys.exit(2)
+
+p.write_text("".join(out))
 PY
 
-cp /etc/xray/config.json /usr/local/etc/xray/config.json
-chmod 644 /usr/local/etc/xray/config.json
-xray run -test -config /usr/local/etc/xray/config.json >/tmp/xray-block-test.log 2>&1 && systemctl restart xray
+cp "$TMP" "$RCONF"
+chmod 644 "$RCONF"
+
+if xray run -test -config "$RCONF" >/tmp/xray-block-test.log 2>&1; then
+    cp "$TMP" "$CONF"
+    chmod 644 "$CONF"
+    systemctl restart xray
+    rm -f "$TMP"
+    exit 0
+else
+    rm -f "$TMP"
+    echo "XRAY TEST FAILED. Block not applied. See /tmp/xray-block-test.log" >&2
+    exit 1
+fi

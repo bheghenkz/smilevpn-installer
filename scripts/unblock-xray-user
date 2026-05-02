@@ -1,16 +1,30 @@
 #!/bin/bash
+set -e
+
 SERVICE="$1"
 USER="$2"
 CONF="/etc/xray/config.json"
+RCONF="/usr/local/etc/xray/config.json"
 STATE="/etc/smilevpn-limit"
-BACKUP="$STATE/$SERVICE-$USER.config.backup"
+
+[ -n "$SERVICE" ] && [ -n "$USER" ] || exit 1
+
+SAFE_USER="$(echo "$USER" | tr -cd 'A-Za-z0-9_.@-')"
+SAFE_SERVICE="$(echo "$SERVICE" | tr -cd 'A-Za-z0-9_.@-')"
+BACKUP="$STATE/$SAFE_SERVICE-$SAFE_USER.config.backup"
 
 [ -f "$BACKUP" ] || exit 0
 
-cp "$BACKUP" "$CONF"
-cp "$CONF" /usr/local/etc/xray/config.json
-chmod 644 /usr/local/etc/xray/config.json
+cp "$BACKUP" "$RCONF"
+chmod 644 "$RCONF"
 
-xray run -test -config /usr/local/etc/xray/config.json >/tmp/xray-unblock-test.log 2>&1 && systemctl restart xray
-
-rm -f "$BACKUP"
+if xray run -test -config "$RCONF" >/tmp/xray-unblock-test.log 2>&1; then
+    cp "$BACKUP" "$CONF"
+    chmod 644 "$CONF"
+    systemctl restart xray
+    rm -f "$BACKUP"
+    exit 0
+else
+    echo "XRAY TEST FAILED. Unblock not applied. See /tmp/xray-unblock-test.log" >&2
+    exit 1
+fi

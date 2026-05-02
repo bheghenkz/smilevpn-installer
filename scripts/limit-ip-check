@@ -49,6 +49,19 @@ check_xray() {
         [ -z "$LIMIT" ] && LIMIT=0
         [ "$LIMIT" = "0" ] && continue
 
+        # AUTO CLEAN EXPIRED/DELETED XRAY USER STATE
+        # If user no longer exists in Xray config, remove old strike/block/backup state.
+        if [ "$SERVICE" != "ssh" ] && [ -f /etc/xray/config.json ]; then
+            if ! grep -q "\"email\": \"$USER\"" /etc/xray/config.json; then
+                rm -f "$STATE_DIR/$SERVICE-$USER.strike" \
+                      "$STATE_DIR/$SERVICE-$USER.blocked_until" \
+                      "$STATE_DIR/$SERVICE-$USER.suspended" \
+                      "$STATE_DIR/$SERVICE-$USER.config.backup"
+                echo "AUTO CLEAN: $SERVICE $USER not found in Xray config, old limit state removed"
+                continue
+            fi
+        fi
+
         STRIKE_FILE="$STATE_DIR/$SERVICE-$USER.strike"
         BLOCK_FILE="$STATE_DIR/$SERVICE-$USER.blocked_until"
         SUSPEND_FILE="$STATE_DIR/$SERVICE-$USER.suspended"
