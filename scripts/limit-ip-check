@@ -96,14 +96,48 @@ fi
             fi
         fi
 
-        # Count ONLY real client source IP from Xray log:
-        # format: from CLIENT_IP:PORT accepted ... email: USER
-        IPS=$(tail -n 5000 "$LOG" 2>/dev/null \
+        # Count real client IP.
+        # For WS/gRPC behind Nginx, Xray sees 127.0.0.1.
+        # Use user-specific Nginx path when available, fallback to Xray log.
+        case "$SERVICE" in
+            trojan)
+                NGINX_USER_PAT="/trojan-ws/$USER"
+                ;;
+            vmess)
+                NGINX_USER_PAT="/vmess/$USER"
+                ;;
+            vless)
+                NGINX_USER_PAT="/vless/$USER"
+                ;;
+            shadowsocks)
+                NGINX_USER_PAT="/ss-ws/$USER"
+                ;;
+            trojango)
+                NGINX_USER_PAT="/trojango/$USER"
+                ;;
+            *)
+                NGINX_USER_PAT=""
+                ;;
+        esac
+
+        NGINX_IPS=""
+        if [ -n "$NGINX_USER_PAT" ] && [ -f /var/log/nginx/access.log ]; then
+            NGINX_IPS=$(tail -n 10000 /var/log/nginx/access.log 2>/dev/null \
+                | grep "$NGINX_USER_PAT" \
+                | awk '{print $1}' \
+                | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' \
+                | grep -vE '^(127\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.)' \
+                | sort -u)
+        fi
+
+        XRAY_IPS=$(tail -n 5000 "$LOG" 2>/dev/null \
             | grep "email: $USER" \
             | grep " accepted " \
-            | sed -n 's/.*from \([0-9][0-9.]*\):.*/\1/p' \
+            | sed -n 's/.*from \(tcp:\)\?\([0-9][0-9.]*\):.*/\2/p' \
             | grep -vE '^(127\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.)' \
             | sort -u)
+
+        IPS=$(printf "%s\n%s\n" "$NGINX_IPS" "$XRAY_IPS" | sed '/^$/d' | sort -u)
 
         COUNT=$(echo "$IPS" | sed '/^$/d' | wc -l)
         IPS_COMMA=$(echo "$IPS" | paste -sd "," -)

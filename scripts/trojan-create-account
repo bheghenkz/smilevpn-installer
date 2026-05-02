@@ -34,8 +34,8 @@ chmod 644 /usr/local/etc/xray/config.json
     systemctl restart xray >/dev/null 2>&1 || true
 }
 sync_xray
-TROJAN_LINK_TLS="trojan://${UUID}@${DOMAIN}:443?path=%2Ftrojan-ws&security=tls&host=${DOMAIN}&type=ws&sni=${DOMAIN}#${USERNAME}"
-TROJAN_LINK_NTLS="trojan://${UUID}@${DOMAIN}:80?path=%2Ftrojan-ws&security=none&host=${DOMAIN}&type=ws#${USERNAME}"
+TROJAN_LINK_TLS="trojan://${UUID}@${DOMAIN}:443?path=%2Ftrojan-ws%2F${USERNAME}&security=tls&host=${DOMAIN}&type=ws&sni=${DOMAIN}#${USERNAME}"
+TROJAN_LINK_NTLS="trojan://${UUID}@${DOMAIN}:80?path=%2Ftrojan-ws%2F${USERNAME}&security=none&host=${DOMAIN}&type=ws#${USERNAME}"
 TROJAN_LINK_GRPC="trojan://${UUID}@${DOMAIN}:443?mode=gun&security=tls&type=grpc&serviceName=trojan-grpc&sni=${DOMAIN}#${USERNAME}"
 cat >/var/www/html/trojan-${USERNAME}.txt <<END
 proxies:
@@ -49,7 +49,7 @@ proxies:
   tls: true
   skip-cert-verify: true
   ws-opts:
-    path: /trojan-ws
+    path: /trojan-ws/${USERNAME}
     headers:
       Host: ${DOMAIN}
   udp: true
@@ -64,7 +64,7 @@ proxies:
   tls: false
   skip-cert-verify: true
   ws-opts:
-    path: /trojan-ws
+    path: /trojan-ws/${USERNAME}
     headers:
       Host: ${DOMAIN}
   udp: true
@@ -105,7 +105,7 @@ City       : ${CITY}
 TLS        : 443
 Non TLS    : 80
 gRPC       : 443
-Path       : /trojan-ws
+Path       : /trojan-ws/${USERNAME}
 Service    : trojan-grpc
 
 🔗 LINK
