@@ -97,7 +97,8 @@ fi
                 NOTIFY_FILE="$STATE_DIR/$SERVICE-$USER.notified"
                 if [ ! -f "$NOTIFY_FILE" ]; then
                     STRIKE_NOW=$(cat "$STRIKE_FILE" 2>/dev/null || echo 1)
-                    send_log "$USER" "$SERVICE" "$LIMIT" "$((LIMIT + 1))" "blocked" "$STRIKE_NOW" "Block active" "$BLOCK_UNTIL"
+                    IPS_RETRY=$(cat "$STATE_DIR/$SERVICE-$USER.ips" 2>/dev/null || echo "unknown")
+                    send_log "$USER" "$SERVICE" "$LIMIT" "$((LIMIT + 1))" "$IPS_RETRY" "$STRIKE_NOW" "Block active" "$BLOCK_UNTIL"
                     date +%s > "$NOTIFY_FILE"
                 fi
                 continue
@@ -153,6 +154,8 @@ fi
         COUNT=$(echo "$IPS" | sed '/^$/d' | wc -l)
         IPS_COMMA=$(echo "$IPS" | paste -sd "," -)
 [ -z "$IPS_COMMA" ] && IPS_COMMA="unknown"
+        IPS_FILE="$STATE_DIR/$SERVICE-$USER.ips"
+        echo "$IPS_COMMA" > "$IPS_FILE"
 
         if [ "$COUNT" -le "$LIMIT" ]; then
             continue
