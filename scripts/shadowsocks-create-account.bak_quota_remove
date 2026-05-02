@@ -13,6 +13,7 @@ if [ "$EXPIRED_AT" = "trial" ]; then
 fi
 
 IPLIMIT="${3:-5}"
+QUOTA="0"
 
 IP=$(curl -s ipv4.icanhazip.com)
 ISP=$(cat /etc/xray/isp)
@@ -22,8 +23,13 @@ DOMAIN=$(cat /etc/xray/domain)
 mkdir -p /etc/shadowsocks/akun
 
 [ "$IPLIMIT" = "0" ] && IPLIMIT="9999"
+[ "$QUOTA" = "0" ] && QUOTA="9999"
 
+c=$(echo "${QUOTA}" | sed 's/[^0-9]*//g')
 d=$((${c} * 1024 * 1024 * 1024))
+if [[ ${c} != "0" ]]; then
+    echo "${d}" >/etc/shadowsocks/${USERNAME}
+fi
 echo "${IPLIMIT}" >/etc/shadowsocks/${USERNAME}IP
 
 METHOD="aes-128-gcm"
@@ -51,6 +57,7 @@ Username   : ${USERNAME}
 Password   : ${PASS}
 Expired    : ${EXPIRED_AT}
 Limit IP   : ${IPLIMIT} IP
+Quota      : ${QUOTA} GB
 
 🌐 SERVER
 Domain     : ${DOMAIN}
@@ -85,6 +92,7 @@ Username   : ${USERNAME}
 Password   : ${PASS}
 Expired    : ${EXPIRED_AT}
 Limit IP   : ${IPLIMIT} IP
+Quota      : ${QUOTA} GB
 
 🌐 SERVER
 Domain     : ${DOMAIN}

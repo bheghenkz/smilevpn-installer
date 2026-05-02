@@ -10,6 +10,7 @@ if [ "$EXPIRED_AT" = "trial" ]; then
     EXPIRED_AT=$(date -d "+1 hour" "+%Y-%m-%d %H:%M")
 fi
 IPLIMIT="${3:-5}"
+QUOTA="0"
 
 IP=$(curl -s ipv4.icanhazip.com)
 ISP=$(cat /etc/xray/isp)
@@ -25,7 +26,14 @@ fi
 if [ ${IPLIMIT} = '0' ]; then
 IPLIMIT="9999"
 fi
+if [ ${QUOTA} = '0' ]; then
+QUOTA="999"
+fi
+c=$(echo "${QUOTA}" | sed 's/[^0-9]*//g')
 d=$((${c} * 1024 * 1024 * 1024))
+if [[ ${c} != "0" ]]; then
+echo "${d}" >/etc/trojan/${USERNAME}
+fi
 echo "${IPLIMIT}" >/etc/trojan/${USERNAME}IP
 #ISP=$(cat /etc/xray/isp)
 #CITY=$(cat /etc/xray/city)
@@ -98,6 +106,7 @@ Username   : ${USERNAME}
 Key        : ${UUID}
 Expired    : ${EXPIRED_AT}
 Limit IP   : ${IPLIMIT} IP
+Quota      : ${QUOTA} GB
 
 🌐 SERVER
 Domain     : ${DOMAIN}

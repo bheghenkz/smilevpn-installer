@@ -2,6 +2,7 @@
 USERNAME=$1
 EXPIRED_AT=$2
 IPLIMIT="${3:-5}"
+QUOTA="9999"
 
 if [ -z "$USERNAME" ] || [ -z "$EXPIRED_AT" ]; then
     echo "Usage: trojango-create-account USERNAME expired|trial IPLIMIT"
@@ -19,6 +20,7 @@ mkdir -p /etc/trojango/akun /etc/trojan-go /var/www/html
 
 [ "$IPLIMIT" = "0" ] && IPLIMIT="9999"
 echo "$IPLIMIT" >/etc/trojango/${USERNAME}IP
+echo "$((QUOTA * 1024 * 1024 * 1024))" >/etc/trojango/${USERNAME}
 
 # inject password
 python3 - <<PY

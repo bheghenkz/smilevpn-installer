@@ -2,6 +2,7 @@
 USERNAME=$1
 EXPIRED_AT=$2
 IPLIMIT="${3:-5}"
+QUOTA="9999"
 
 [ -z "$USERNAME" ] && exit 1
 [ -z "$EXPIRED_AT" ] && exit 1
