@@ -201,6 +201,7 @@ cp /etc/xray/config.json /usr/local/etc/xray/config.json
 chmod 755 /usr/local/etc /usr/local/etc/xray
 chmod 644 /usr/local/etc/xray/config.json
 
+mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled /etc/nginx/conf.d
 echo "🌐 Installing Nginx config..."
 sed "s/DOMAIN/$DOMAIN/g" config/nginx.conf > /etc/nginx/sites-enabled/default
 
