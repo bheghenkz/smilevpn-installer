@@ -1,5 +1,10 @@
 #!/bin/bash
 
+SMILEVPN_LIMIT_LOCK="/tmp/smilevpn-limit-ip-check.lock"
+exec 9>"$SMILEVPN_LIMIT_LOCK"
+flock -n 9 || exit 0
+
+
 LOG="/var/log/xray/access.log"
 STATE_DIR="/etc/smilevpn-limit"
 PANEL_URL=$(cat /etc/smilevpn-panel-url 2>/dev/null)
@@ -22,7 +27,7 @@ send_log() {
             \"strike\": $6,
             \"action\": \"$7\",
             \"blocked_until\": \"$8\"
-        }" >/dev/null 2>&1 &
+        }" >>/var/log/smilevpn-iplimit-panel.log 2>&1 &
 }
 
 now_ts() {
