@@ -202,6 +202,36 @@ chmod 755 /usr/local/etc /usr/local/etc/xray
 chmod 644 /usr/local/etc/xray/config.json
 
 mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled /etc/nginx/conf.d
+
+if [ ! -f /etc/nginx/nginx.conf ]; then
+cat >/etc/nginx/nginx.conf <<'NGINXCONF'
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+    worker_connections 768;
+}
+
+http {
+    sendfile on;
+    tcp_nopush on;
+    types_hash_max_size 2048;
+
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+
+    gzip on;
+
+    include /etc/nginx/conf.d/*.conf;
+    include /etc/nginx/sites-enabled/*;
+}
+NGINXCONF
+fi
 echo "🌐 Installing Nginx config..."
 sed "s/DOMAIN/$DOMAIN/g" config/nginx.conf > /etc/nginx/sites-enabled/default
 
