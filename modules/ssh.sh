@@ -58,4 +58,33 @@ systemctl restart dropbear
 systemctl enable ws
 systemctl restart ws
 
+cat >/etc/kyt.txt <<'EOF'
+<p style="text-align:center"><b>
+<br><font color='green'><b>╭═══════════════════════╮</b></font>
+<br><font color='#8A95FF'><b>⇱ SmileVPN ⇲</b></font>
+<br><font color='green'><b>╰═══════════════════════╯</b><br></font>
+<br><font color='#FF000E'>&ensp;⇱ NO DDOS ⇲</font>
+<br><font color='#3FFFAD'>&ensp;⇱ NO HACKING ⇲</font>
+<br><font color='#52fc03'>&ensp;⇱ NO MULTILOGIN ⇲</font>
+<br><font color='#0367fc'>&ensp;⇱ MELANGGAR AUTO BANNED ⇲</font>
+<br><font color='green'><b>┏━━━━━━━━━━ ✫ ━━━━━━━━━━┓</b></font>
+<br><font color='#8A95FF'><b>⇱ KONTAK ADMIN ⇲</b></font>
+<br><font color='yellow'><b>Admin: t.me/fensmilebots</b></font>
+<br><font color='green'><b>┗━━━━━━━━━━━━━━━━━━━━━━┛</b><br></font>
+<br><font color='yellow'><b>Menyediakan kebutuhan tunneling, akun dan config premium, sewa vps, sewa dan reseller autoscript</b></font>
+</b></p>
+EOF
+
+chmod 644 /etc/kyt.txt
+groupadd -f smilevpn-users
+
+sed -i '/^Banner \/etc\/kyt.txt/d' /etc/ssh/sshd_config
+sed -i '/^Match Group smilevpn-users/,$d' /etc/ssh/sshd_config
+
+cat >> /etc/ssh/sshd_config <<'EOF'
+
+Match Group smilevpn-users
+    Banner /etc/kyt.txt
+EOF
+
 echo "✅ SSH stack installed"
