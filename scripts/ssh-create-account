@@ -2,10 +2,21 @@
 
 
 
-USERNAME=$1
-EXPIRED_AT="${2:-1}"
-IPLIMIT="${3:-5}"
-PASSWORD="$(tr -dc A-Za-z0-9 </dev/urandom | head -c 10)"
+USERNAME="$1"
+
+# Support panel format:
+# ssh-create-account USERNAME PASSWORD EXPIRED_AT IPLIMIT
+# Also support manual old format:
+# ssh-create-account USERNAME expired|trial IPLIMIT
+if [ $# -ge 4 ]; then
+    PASSWORD="$2"
+    EXPIRED_AT="$3"
+    IPLIMIT="${4:-2}"
+else
+    EXPIRED_AT="${2:-1}"
+    IPLIMIT="${3:-5}"
+    PASSWORD="$(tr -dc A-Za-z0-9 </dev/urandom | head -c 10)"
+fi
 
 # SUPPORT TRIAL 1 JAM
 if [ "$EXPIRED_AT" = "trial" ]; then
@@ -29,6 +40,11 @@ fi
 echo "${IPLIMIT}" >/etc/xray/sshx/${USERNAME}IP
 
 useradd -m -e "${EXPIRED_AT}" -s /bin/bash "${USERNAME}" &> /dev/null
+echo "${USERNAME}:${PASSWORD}" | chpasswd
+mkdir -p "/home/${USERNAME}"
+chown "${USERNAME}:${USERNAME}" "/home/${USERNAME}"
+groupadd -f smilevpn-users
+usermod -aG smilevpn-users "${USERNAME}"
 echo -e "${PASSWORD}\n${PASSWORD}\n" | passwd "${USERNAME}" &> /dev/null
 echo -e "### ${USERNAME} ${EXPIRED_AT} ${PASSWORD}" >> /etc/xray/ssh
 
@@ -93,7 +109,7 @@ OpenSSH    : 22, 2222, 2223
 Dropbear   : 109, 143
 WS         : -
 SSL WS     : -
-UDP        : 1-65535
+UDPGW      : 7300, 7301, 7302
 
 🔗 LINK
 OVPN       : https://${DOMAIN}/
