@@ -10,7 +10,12 @@
       "listen": "127.0.0.1",
       "protocol": "vless",
       "settings": {
-        "clients": [],
+        "clients": [
+          {
+            "id": "__VLESS_SEED__",
+            "email": "seed"
+          }
+        ],
         "decryption": "none"
       },
       "streamSettings": {
@@ -25,7 +30,13 @@
       "listen": "127.0.0.1",
       "protocol": "vmess",
       "settings": {
-        "clients": []
+        "clients": [
+          {
+            "id": "__VMESS_SEED__",
+            "alterId": 0,
+            "email": "seed"
+          }
+        ]
       },
       "streamSettings": {
         "network": "ws",
@@ -39,7 +50,12 @@
       "listen": "127.0.0.1",
       "protocol": "trojan",
       "settings": {
-        "clients": []
+        "clients": [
+          {
+            "password": "__TROJAN_SEED__",
+            "email": "seed"
+          }
+        ]
       },
       "streamSettings": {
         "network": "ws",
@@ -53,7 +69,12 @@
       "listen": "127.0.0.1",
       "protocol": "vless",
       "settings": {
-        "clients": [],
+        "clients": [
+          {
+            "id": "__VLESS_GRPC_SEED__",
+            "email": "seed-grpc"
+          }
+        ],
         "decryption": "none"
       },
       "streamSettings": {
@@ -68,7 +89,13 @@
       "listen": "127.0.0.1",
       "protocol": "vmess",
       "settings": {
-        "clients": []
+        "clients": [
+          {
+            "id": "__VMESS_GRPC_SEED__",
+            "alterId": 0,
+            "email": "seed-grpc"
+          }
+        ]
       },
       "streamSettings": {
         "network": "grpc",
@@ -82,7 +109,12 @@
       "listen": "127.0.0.1",
       "protocol": "trojan",
       "settings": {
-        "clients": []
+        "clients": [
+          {
+            "password": "__TROJAN_GRPC_SEED__",
+            "email": "seed-grpc"
+          }
+        ]
       },
       "streamSettings": {
         "network": "grpc",
@@ -96,7 +128,13 @@
       "listen": "127.0.0.1",
       "protocol": "shadowsocks",
       "settings": {
-        "clients": [],
+        "clients": [
+          {
+            "method": "aes-128-gcm",
+            "password": "__SS_WS_SEED__",
+            "email": "seed-ss-ws"
+          }
+        ],
         "network": "tcp,udp"
       },
       "streamSettings": {
@@ -111,7 +149,13 @@
       "listen": "127.0.0.1",
       "protocol": "shadowsocks",
       "settings": {
-        "clients": [],
+        "clients": [
+          {
+            "method": "aes-128-gcm",
+            "password": "__SS_GRPC_SEED__",
+            "email": "seed-ss-grpc"
+          }
+        ],
         "network": "tcp,udp"
       },
       "streamSettings": {
@@ -126,7 +170,13 @@
       "listen": "0.0.0.0",
       "protocol": "vless",
       "settings": {
-        "clients": [],
+        "clients": [
+          {
+            "id": "__REALITY_SEED__",
+            "flow": "xtls-rprx-vision",
+            "email": "seed-reality"
+          }
+        ],
         "decryption": "none"
       },
       "streamSettings": {
