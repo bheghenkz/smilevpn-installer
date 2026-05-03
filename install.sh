@@ -284,6 +284,9 @@ EOF
 
 sysctl --system || true
 echo "✅ Network optimization active"
+echo "🚀 Applying SmileVPN speed boost..."
+bash scripts/smilevpn-speed-boost || true
+
 
 
 
