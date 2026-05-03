@@ -424,8 +424,22 @@ echo "🚀 Enable services..."
 systemctl daemon-reload
 systemctl enable xray
 mkdir -p /usr/local/etc/xray
-mkdir -p /usr/local/etc/xray
-cp /etc/xray/config.json /usr/local/etc/xray/config.json
+
+python3 <<'PYX'
+import re
+from pathlib import Path
+
+src = Path("/etc/xray/config.json")
+dst = Path("/usr/local/etc/xray/config.json")
+
+s = src.read_text()
+s = re.sub(r'^\s*#.*$', '', s, flags=re.MULTILINE)
+s = re.sub(r',\s*}', '}', s)
+s = re.sub(r',\s*]', ']', s)
+
+dst.write_text(s)
+PYX
+
 chmod 755 /usr/local/etc /usr/local/etc/xray
 chmod 644 /usr/local/etc/xray/config.json
 xray run -test -config /usr/local/etc/xray/config.json

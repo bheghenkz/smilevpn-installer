@@ -15,6 +15,7 @@
             "id": "__VLESS_SEED__",
             "email": "seed"
           }
+          #vless
         ],
         "decryption": "none"
       },
@@ -36,6 +37,7 @@
             "alterId": 0,
             "email": "seed"
           }
+          #vmess
         ]
       },
       "streamSettings": {
@@ -55,6 +57,7 @@
             "password": "__TROJAN_SEED__",
             "email": "seed"
           }
+          #trojanws
         ]
       },
       "streamSettings": {
@@ -74,6 +77,7 @@
             "id": "__VLESS_GRPC_SEED__",
             "email": "seed-grpc"
           }
+          #vlessgrpc
         ],
         "decryption": "none"
       },
@@ -95,6 +99,7 @@
             "alterId": 0,
             "email": "seed-grpc"
           }
+          #vmessgrpc
         ]
       },
       "streamSettings": {
@@ -114,6 +119,7 @@
             "password": "__TROJAN_GRPC_SEED__",
             "email": "seed-grpc"
           }
+          #trojangrpc
         ]
       },
       "streamSettings": {
@@ -134,6 +140,7 @@
             "password": "__SS_WS_SEED__",
             "email": "seed-ss-ws"
           }
+          #ssws
         ],
         "network": "tcp,udp"
       },
@@ -155,6 +162,7 @@
             "password": "__SS_GRPC_SEED__",
             "email": "seed-ss-grpc"
           }
+          #ssgrpc
         ],
         "network": "tcp,udp"
       },
@@ -176,6 +184,7 @@
             "flow": "xtls-rprx-vision",
             "email": "seed-reality"
           }
+          #vlessreality
         ],
         "decryption": "none"
       },
