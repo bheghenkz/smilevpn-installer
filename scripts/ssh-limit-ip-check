@@ -1,0 +1,65 @@
+#!/bin/bash
+
+STATE_DIR="/etc/limit-state"
+SSH_DIR="/etc/xray/sshx"
+LOG_FILE="/var/log/ssh-limit.log"
+NOW=$(date +%s)
+
+mkdir -p "$STATE_DIR"
+
+[ -d "$SSH_DIR" ] || exit 0
+
+for file in "$SSH_DIR"/*IP; do
+    [ -f "$file" ] || continue
+
+    USERNAME=$(basename "$file" IP)
+    LIMIT=$(cat "$file" | tr -dc '0-9')
+
+    [ -z "$LIMIT" ] && LIMIT=0
+    [ "$LIMIT" = "0" ] && continue
+
+    if ! id "$USERNAME" >/dev/null 2>&1; then
+        rm -f "$STATE_DIR/ssh-$USERNAME."*
+        continue
+    fi
+
+    STRIKE_FILE="$STATE_DIR/ssh-$USERNAME.strike"
+    BLOCK_FILE="$STATE_DIR/ssh-$USERNAME.blocked_until"
+    IPS_FILE="$STATE_DIR/ssh-$USERNAME.ips"
+
+    STRIKE=$(cat "$STRIKE_FILE" 2>/dev/null || echo 0)
+    BLOCK_UNTIL=$(cat "$BLOCK_FILE" 2>/dev/null || echo 0)
+
+    if [ "$BLOCK_UNTIL" -gt "$NOW" ] 2>/dev/null; then
+        pkill -u "$USERNAME" >/dev/null 2>&1 || true
+        continue
+    fi
+
+    if [ "$BLOCK_UNTIL" != "0" ] && [ "$BLOCK_UNTIL" -le "$NOW" ] 2>/dev/null; then
+        rm -f "$BLOCK_FILE"
+        echo 0 > "$STRIKE_FILE"
+        usermod -U "$USERNAME" >/dev/null 2>&1 || true
+    fi
+
+    IPS=$(who | awk -v u="$USERNAME" '$1 == u {print $5}' | tr -d '()' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | sort -u)
+    COUNT=$(echo "$IPS" | sed '/^$/d' | wc -l)
+    IPS_COMMA=$(echo "$IPS" | paste -sd "," -)
+    [ -z "$IPS_COMMA" ] && IPS_COMMA="unknown"
+    echo "$IPS_COMMA" > "$IPS_FILE"
+
+    if [ "$COUNT" -gt "$LIMIT" ]; then
+        STRIKE=$((STRIKE + 1))
+        echo "$STRIKE" > "$STRIKE_FILE"
+
+        if [ "$STRIKE" -ge 3 ]; then
+            BLOCK_UNTIL=$((NOW + 600))
+            echo "$BLOCK_UNTIL" > "$BLOCK_FILE"
+            usermod -L "$USERNAME" >/dev/null 2>&1 || true
+            pkill -u "$USERNAME" >/dev/null 2>&1 || true
+            echo "$(date '+%F %T') SSH BLOCK $USERNAME IP=$COUNT LIMIT=$LIMIT IPS=$IPS_COMMA" >> "$LOG_FILE"
+        else
+            pkill -u "$USERNAME" >/dev/null 2>&1 || true
+            echo "$(date '+%F %T') SSH STRIKE $USERNAME STRIKE=$STRIKE IP=$COUNT LIMIT=$LIMIT IPS=$IPS_COMMA" >> "$LOG_FILE"
+        fi
+    fi
+done
