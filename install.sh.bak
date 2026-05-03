@@ -74,45 +74,41 @@ echo "$SERVER_IP" > /etc/xray/ip
 touch /var/log/xray/access.log
 touch /var/log/xray/error.log
 
-SSL_MODE="${SSL_MODE:-certbot}"
+echo "☁️ Installing Cloudflare Origin SSL..."
 
-if [ "$SSL_MODE" = "cloudflare" ]; then
-    echo "☁️ Installing Cloudflare Origin SSL..."
+if [ -f "ssl/fullchain.pem" ] && [ -f "ssl/privkey.pem" ]; then
+    echo "✅ Using local Cloudflare SSL files..."
+    cp ssl/fullchain.pem /etc/xray/ssl/fullchain.pem
+    cp ssl/privkey.pem /etc/xray/ssl/privkey.pem
+else
+    echo "🔑 Local SSL not found, generating via Cloudflare API..."
 
-    if [ -f "ssl/fullchain.pem" ] && [ -f "ssl/privkey.pem" ]; then
-        echo "✅ Using local Cloudflare SSL files..."
-        cp ssl/fullchain.pem /etc/xray/ssl/fullchain.pem
-        cp ssl/privkey.pem /etc/xray/ssl/privkey.pem
-    else
-        echo "🔑 Local SSL not found, generating via Cloudflare API..."
+    if [ -z "$CF_API_TOKEN" ]; then
+        read -rp "Cloudflare API Token: " CF_API_TOKEN
+    fi
 
-        if [ -z "$CF_API_TOKEN" ]; then
-            read -rp "Cloudflare API Token: " CF_API_TOKEN
-        fi
+    ROOT_DOMAIN=$(echo "$DOMAIN" | awk -F. '{print $(NF-1)"."$NF}')
 
-        openssl genrsa -out /etc/xray/ssl/privkey.pem 2048
-        openssl req -new -key /etc/xray/ssl/privkey.pem -out /tmp/smilevpn.csr -subj "/CN=$DOMAIN"
+    openssl genrsa -out /etc/xray/ssl/privkey.pem 2048
+    openssl req -new -key /etc/xray/ssl/privkey.pem -out /tmp/smilevpn.csr -subj "/CN=$DOMAIN"
 
-        CSR_JSON=$(python3 - <<PY2
+    CSR_JSON=$(python3 - <<PY2
 import json
 csr=open("/tmp/smilevpn.csr").read()
 print(json.dumps(csr))
 PY2
 )
 
-        RESPONSE=$(curl -sS -X POST "https://api.cloudflare.com/client/v4/certificates" \
-          -H "Authorization: Bearer $CF_API_TOKEN" \
-          -H "Content-Type: application/json" \
-          --data "{
-            \"hostnames\": [\"$DOMAIN\"],
-            \"requested_validity\": 5475,
-            \"request_type\": \"origin-rsa\",
-            \"csr\": $CSR_JSON
-          }")
+    RESPONSE=$(curl -sS -X POST "https://api.cloudflare.com/client/v4/certificates"       -H "Authorization: Bearer $CF_API_TOKEN"       -H "Content-Type: application/json"       --data "{
+        \"hostnames\": [\"$DOMAIN\"],
+        \"requested_validity\": 5475,
+        \"request_type\": \"origin-rsa\",
+        \"csr\": $CSR_JSON
+      }")
 
-        echo "$RESPONSE" > /tmp/smilevpn-cf-cert.json
+    echo "$RESPONSE" > /tmp/smilevpn-cf-cert.json
 
-        python3 - <<PY3
+    python3 - <<PY3
 import json, sys
 data=json.load(open("/tmp/smilevpn-cf-cert.json"))
 if not data.get("success"):
@@ -122,35 +118,12 @@ if not data.get("success"):
 cert=data["result"]["certificate"]
 open("/etc/xray/ssl/fullchain.pem","w").write(cert)
 PY3
-    fi
-
-    chmod 644 /etc/xray/ssl/fullchain.pem
-    chmod 600 /etc/xray/ssl/privkey.pem
-    echo "✅ Cloudflare Origin SSL installed"
-
-else
-    echo "🔐 Installing Certbot SSL..."
-
-    apt-get install -y certbot
-
-    systemctl stop nginx 2>/dev/null || true
-
-    certbot certonly --standalone \
-      --non-interactive \
-      --agree-tos \
-      --register-unsafely-without-email \
-      -d "$DOMAIN"
-
-    mkdir -p /etc/xray/ssl
-
-    cp "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" /etc/xray/ssl/fullchain.pem
-    cp "/etc/letsencrypt/live/$DOMAIN/privkey.pem" /etc/xray/ssl/privkey.pem
-
-    chmod 644 /etc/xray/ssl/fullchain.pem
-    chmod 600 /etc/xray/ssl/privkey.pem
-
-    echo "✅ Certbot SSL installed"
 fi
+
+chmod 644 /etc/xray/ssl/fullchain.pem
+chmod 600 /etc/xray/ssl/privkey.pem
+
+echo "✅ Cloudflare Origin SSL installed"
 
 echo "⚙️ Installing Xray Core..."
 export TERM=xterm
@@ -485,4 +458,4 @@ echo "✅ SmileVPN installer DONE"
 echo "DOMAIN=$DOMAIN"
 echo "XRAY=ON"
 echo "NGINX=ON"
-echo "SSL=$SSL_MODE"
+echo "SSL=CLOUDFLARE"
