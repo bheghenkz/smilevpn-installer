@@ -32,8 +32,8 @@ chmod 644 /usr/local/etc/xray/config.json
     systemctl restart xray >/dev/null 2>&1 || true
 }
 sync_xray
-JSON_TLS=$(jq -nc --arg username "$USERNAME" --arg domain "$DOMAIN" --arg uuid "$UUID" '{v:"2",ps:$username,add:$domain,port:"443",id:$uuid,aid:"0",net:"ws",path:"/vmess/"+$username,type:"none",host:$domain,tls:"tls"}')
-JSON_NTLS=$(jq -nc --arg username "$USERNAME" --arg domain "$DOMAIN" --arg uuid "$UUID" '{v:"2",ps:$username,add:$domain,port:"80",id:$uuid,aid:"0",net:"ws",path:"/vmess/"+$username,type:"none",host:$domain,tls:""}')
+JSON_TLS=$(jq -nc --arg username "$USERNAME" --arg domain "$DOMAIN" --arg uuid "$UUID" '{v:"2",ps:$username,add:$domain,port:"443",id:$uuid,aid:"0",net:"ws",path:("/vmess/" + $username),type:"none",host:$domain,tls:"tls"}')
+JSON_NTLS=$(jq -nc --arg username "$USERNAME" --arg domain "$DOMAIN" --arg uuid "$UUID" '{v:"2",ps:$username,add:$domain,port:"80",id:$uuid,aid:"0",net:"ws",path:("/vmess/" + $username),type:"none",host:$domain,tls:""}')
 JSON_GRPC=$(jq -nc --arg username "$USERNAME" --arg domain "$DOMAIN" --arg uuid "$UUID" '{v:"2",ps:$username,add:$domain,port:"443",id:$uuid,aid:"0",net:"grpc",path:"vmess-grpc",type:"none",host:$domain,tls:"tls"}')
 VMESS_LINK_TLS="vmess://$(echo -n "$JSON_TLS" | base64 -w0)"
 VMESS_LINK_NTLS="vmess://$(echo -n "$JSON_NTLS" | base64 -w0)"
