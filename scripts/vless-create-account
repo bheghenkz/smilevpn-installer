@@ -32,8 +32,8 @@ chmod 644 /usr/local/etc/xray/config.json
     systemctl restart xray >/dev/null 2>&1 || true
 }
 sync_xray
-VLESS_LINK_TLS="vless://${UUID}@${DOMAIN}:443?path=/vless&security=tls&encryption=none&type=ws&sni=${DOMAIN}#${USERNAME}"
-VLESS_LINK_NTLS="vless://${UUID}@${DOMAIN}:80?path=/vless&security=none&encryption=none&type=ws#${USERNAME}"
+VLESS_LINK_TLS="vless://${UUID}@${DOMAIN}:443?path=/vless/${USERNAME}&security=tls&encryption=none&type=ws&sni=${DOMAIN}#${USERNAME}"
+VLESS_LINK_NTLS="vless://${UUID}@${DOMAIN}:80?path=/vless/${USERNAME}&security=none&encryption=none&type=ws#${USERNAME}"
 VLESS_LINK_GRPC="vless://${UUID}@${DOMAIN}:443?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless-grpc&sni=${DOMAIN}#${USERNAME}"
 cat >/var/www/html/vless-${USERNAME}.txt <<END
 proxies:
@@ -46,7 +46,7 @@ proxies:
   servername: ${DOMAIN}
   network: ws
   ws-opts:
-    path: /vless
+    path: /vless/${USERNAME}
     headers:
       Host: ${DOMAIN}
   udp: true
@@ -59,7 +59,7 @@ proxies:
   tls: false
   network: ws
   ws-opts:
-    path: /vless
+    path: /vless/${USERNAME}
     headers:
       Host: ${DOMAIN}
   udp: true
@@ -99,7 +99,7 @@ City       : ${CITY}
 TLS        : 443
 Non TLS    : 80
 gRPC       : 443
-Path       : /vless
+Path       : /vless/${USERNAME}
 Service    : vless-grpc
 
 🔗 LINK

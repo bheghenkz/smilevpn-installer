@@ -29,12 +29,12 @@ if pw not in data["password"]:
     data["password"].append(pw)
 data.setdefault("websocket", {})
 data["websocket"]["enabled"] = True
-data["websocket"]["path"] = "/trojango"
+data["websocket"]["path"] = "/trojango/${USERNAME}"
 open(p,"w").write(json.dumps(data, indent=2))
 PY3
 systemctl restart trojan-go >/dev/null 2>&1 || true
 LINK_TCP="trojan://${PASS}@${DOMAIN}:2087?sni=${DOMAIN}#${USERNAME}-TCP"
-LINK_WS="trojan://${PASS}@${DOMAIN}:2087?type=ws&security=tls&host=${DOMAIN}&path=%2Ftrojango&sni=${DOMAIN}#${USERNAME}-WS"
+LINK_WS="trojan://${PASS}@${DOMAIN}:2087?type=ws&security=tls&host=${DOMAIN}&path=%2Ftrojango%2F${USERNAME}&sni=${DOMAIN}#${USERNAME}-WS"
 cat >/var/www/html/trojango-${USERNAME}.txt <<END
 proxies:
 - name: ${USERNAME}-TROJANGO-TCP
@@ -58,7 +58,7 @@ proxies:
   tls: true
   skip-cert-verify: true
   ws-opts:
-    path: /trojango
+    path: /trojango/${USERNAME}
     headers:
       Host: ${DOMAIN}
   udp: true
@@ -83,7 +83,7 @@ City       : ${CITY}
 🔌 PORT
 TCP TLS    : 2087
 WS TLS     : 2087
-Path       : /trojango
+Path       : /trojango/${USERNAME}
 
 🔗 LINK
 OpenClash  : https://${DOMAIN}/trojango-${USERNAME}.txt

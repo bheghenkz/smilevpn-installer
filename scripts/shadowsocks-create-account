@@ -34,8 +34,8 @@ chmod 644 /usr/local/etc/xray/config.json
 }
 sync_xray
 SS_BASE=$(echo -n "${METHOD}:${PASS}" | base64 -w0)
-SS_LINK_TLS="ss://${SS_BASE}@${DOMAIN}:443?plugin=v2ray-plugin%3Btls%3Bhost%3D${DOMAIN}%3Bpath%3D%2Fss-ws#${USERNAME}"
-SS_LINK_NTLS="ss://${SS_BASE}@${DOMAIN}:80?plugin=v2ray-plugin%3Bhost%3D${DOMAIN}%3Bpath%3D%2Fss-ws#${USERNAME}"
+SS_LINK_TLS="ss://${SS_BASE}@${DOMAIN}:443?plugin=v2ray-plugin%3Btls%3Bhost%3D${DOMAIN}%3Bpath%3D%2Fss-ws%2F${USERNAME}#${USERNAME}"
+SS_LINK_NTLS="ss://${SS_BASE}@${DOMAIN}:80?plugin=v2ray-plugin%3Bhost%3D${DOMAIN}%3Bpath%3D%2Fss-ws%2F${USERNAME}#${USERNAME}"
 SS_LINK_GRPC="ss://${SS_BASE}@${DOMAIN}:443?plugin=xray-plugin%3Btls%3Bhost%3D${DOMAIN}%3Bmode%3Dgrpc%3BserviceName%3Dss-grpc#${USERNAME}"
 cat >/var/www/html/shadowsocks-${USERNAME}.txt <<END
 proxies:
@@ -50,7 +50,7 @@ proxies:
     mode: websocket
     tls: true
     host: ${DOMAIN}
-    path: /ss-ws
+    path: /ss-ws/${USERNAME}
   udp: true
 
 - name: ${USERNAME}-SS-WS-NTLS
@@ -64,7 +64,7 @@ proxies:
     mode: websocket
     tls: false
     host: ${DOMAIN}
-    path: /ss-ws
+    path: /ss-ws/${USERNAME}
   udp: true
 
 - name: ${USERNAME}-SS-GRPC
@@ -104,7 +104,7 @@ City       : ${CITY}
 TLS        : 443
 Non TLS    : 80
 gRPC       : 443
-Path       : /ss-ws
+Path       : /ss-ws/${USERNAME}
 Service    : ss-grpc
 
 🔗 LINK
