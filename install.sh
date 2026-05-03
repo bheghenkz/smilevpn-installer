@@ -37,6 +37,11 @@ echo "📦 Installing packages..."
 apt-get update -y
 apt-get install -y curl wget unzip nginx ca-certificates socat cron openssl jq
 
+# Restore missing nginx config files if VPS was cleaned manually
+apt-get install -y --reinstall -o Dpkg::Options::="--force-confmiss" nginx nginx-common || true
+mkdir -p /etc/nginx /etc/nginx/sites-available /etc/nginx/sites-enabled /etc/nginx/conf.d /var/log/nginx
+touch /var/log/nginx/access.log /var/log/nginx/error.log
+
 echo "📁 Setup folders..."
 mkdir -p /etc/xray
 mkdir -p /etc/xray/ssl
