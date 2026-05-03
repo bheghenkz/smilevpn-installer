@@ -10,15 +10,14 @@
       "listen": "127.0.0.1",
       "protocol": "vless",
       "settings": {
-        "clients": [
-          {"id": "__VLESS_SEED__", "email": "seed"}
-          #vless
-        ],
+        "clients": [],
         "decryption": "none"
       },
       "streamSettings": {
         "network": "ws",
-        "wsSettings": {"path": "/vless"}
+        "wsSettings": {
+          "path": "/vless"
+        }
       }
     },
     {
@@ -26,14 +25,13 @@
       "listen": "127.0.0.1",
       "protocol": "vmess",
       "settings": {
-        "clients": [
-          {"id": "__VMESS_SEED__", "alterId": 0, "email": "seed"}
-          #vmess
-        ]
+        "clients": []
       },
       "streamSettings": {
         "network": "ws",
-        "wsSettings": {"path": "/vmess"}
+        "wsSettings": {
+          "path": "/vmess"
+        }
       }
     },
     {
@@ -41,14 +39,13 @@
       "listen": "127.0.0.1",
       "protocol": "trojan",
       "settings": {
-        "clients": [
-          {"password": "__TROJAN_SEED__", "email": "seed"}
-          #trojanws
-        ]
+        "clients": []
       },
       "streamSettings": {
         "network": "ws",
-        "wsSettings": {"path": "/trojan-ws"}
+        "wsSettings": {
+          "path": "/trojan-ws"
+        }
       }
     },
     {
@@ -56,15 +53,14 @@
       "listen": "127.0.0.1",
       "protocol": "vless",
       "settings": {
-        "clients": [
-          {"id": "__VLESS_GRPC_SEED__", "email": "seed-grpc"}
-          #vlessgrpc
-        ],
+        "clients": [],
         "decryption": "none"
       },
       "streamSettings": {
         "network": "grpc",
-        "grpcSettings": {"serviceName": "vless-grpc"}
+        "grpcSettings": {
+          "serviceName": "vless-grpc"
+        }
       }
     },
     {
@@ -72,14 +68,13 @@
       "listen": "127.0.0.1",
       "protocol": "vmess",
       "settings": {
-        "clients": [
-          {"id": "__VMESS_GRPC_SEED__", "alterId": 0, "email": "seed-grpc"}
-          #vmessgrpc
-        ]
+        "clients": []
       },
       "streamSettings": {
         "network": "grpc",
-        "grpcSettings": {"serviceName": "vmess-grpc"}
+        "grpcSettings": {
+          "serviceName": "vmess-grpc"
+        }
       }
     },
     {
@@ -87,14 +82,13 @@
       "listen": "127.0.0.1",
       "protocol": "trojan",
       "settings": {
-        "clients": [
-          {"password": "__TROJAN_GRPC_SEED__", "email": "seed-grpc"}
-          #trojangrpc
-        ]
+        "clients": []
       },
       "streamSettings": {
         "network": "grpc",
-        "grpcSettings": {"serviceName": "trojan-grpc"}
+        "grpcSettings": {
+          "serviceName": "trojan-grpc"
+        }
       }
     },
     {
@@ -102,15 +96,14 @@
       "listen": "127.0.0.1",
       "protocol": "shadowsocks",
       "settings": {
-        "clients": [
-          {"method": "aes-128-gcm", "password": "__SS_WS_SEED__", "email": "seed-ss-ws"}
-          #ssws
-        ],
+        "clients": [],
         "network": "tcp,udp"
       },
       "streamSettings": {
         "network": "ws",
-        "wsSettings": {"path": "/ss-ws"}
+        "wsSettings": {
+          "path": "/ss-ws"
+        }
       }
     },
     {
@@ -118,15 +111,14 @@
       "listen": "127.0.0.1",
       "protocol": "shadowsocks",
       "settings": {
-        "clients": [
-          {"method": "aes-128-gcm", "password": "__SS_GRPC_SEED__", "email": "seed-ss-grpc"}
-          #ssgrpc
-        ],
+        "clients": [],
         "network": "tcp,udp"
       },
       "streamSettings": {
         "network": "grpc",
-        "grpcSettings": {"serviceName": "ss-grpc"}
+        "grpcSettings": {
+          "serviceName": "ss-grpc"
+        }
       }
     },
     {
@@ -134,10 +126,7 @@
       "listen": "0.0.0.0",
       "protocol": "vless",
       "settings": {
-        "clients": [
-          {"id": "__REALITY_SEED__", "flow": "xtls-rprx-vision", "email": "seed-reality"}
-          #vlessreality
-        ],
+        "clients": [],
         "decryption": "none"
       },
       "streamSettings": {
@@ -147,9 +136,13 @@
           "show": false,
           "dest": "www.cloudflare.com:443",
           "xver": 0,
-          "serverNames": ["www.cloudflare.com"],
-          "privateKey": "__REALITY_PRIVATE__",
-          "shortIds": ["__REALITY_SHORT__"]
+          "serverNames": [
+            "www.cloudflare.com"
+          ],
+          "privateKey": "CCRq_tVeD6_UIvnWgE15udHahLUVZmesw0oH9MKmanE",
+          "shortIds": [
+            "18891e05"
+          ]
         }
       }
     }
