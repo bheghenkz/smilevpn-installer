@@ -4,17 +4,61 @@ STATE_DIR="/etc/limit-state"
 SSH_DIR="/etc/xray/sshx"
 LOG_FILE="/var/log/ssh-limit.log"
 NOW=$(date +%s)
+MAX_STRIKE=3
+BLOCK_SECONDS=600
 
 mkdir -p "$STATE_DIR"
-
 [ -d "$SSH_DIR" ] || exit 0
+
+get_user_ips() {
+    user="$1"
+
+    python3 - "$user" <<'PYX'
+import re
+import subprocess
+import sys
+
+user = sys.argv[1]
+out = subprocess.getoutput("ss -tnp state established")
+ips = set()
+
+for line in out.splitlines():
+    if "sshd" not in line:
+        continue
+
+    parts = line.split()
+    if len(parts) < 5:
+        continue
+
+    local = parts[2]
+    remote = parts[3]
+
+    if not re.search(r":(22|2222|2223)$", local):
+        continue
+
+    pids = re.findall(r"pid=(\d+)", line)
+    if not pids:
+        continue
+
+    for pid in pids:
+        owner = subprocess.getoutput(f"ps -o user= -p {pid}").strip()
+        if owner == user:
+            remote = re.sub(r"^\[|\]$", "", remote)
+            remote = re.sub(r":\d+$", "", remote)
+            if re.match(r"^\d+\.\d+\.\d+\.\d+$", remote):
+                ips.add(remote)
+
+print("\n".join(sorted(ips)))
+PYX
+}
 
 for file in "$SSH_DIR"/*IP; do
     [ -f "$file" ] || continue
 
-    USERNAME=$(basename "$file" IP)
-    LIMIT=$(cat "$file" | tr -dc '0-9')
+    USERNAME="$(basename "$file" IP)"
+    LIMIT="$(cat "$file" | tr -dc '0-9')"
 
+    [ "$USERNAME" = "root" ] && continue
     [ -z "$LIMIT" ] && LIMIT=0
     [ "$LIMIT" = "0" ] && continue
 
@@ -26,24 +70,27 @@ for file in "$SSH_DIR"/*IP; do
     STRIKE_FILE="$STATE_DIR/ssh-$USERNAME.strike"
     BLOCK_FILE="$STATE_DIR/ssh-$USERNAME.blocked_until"
     IPS_FILE="$STATE_DIR/ssh-$USERNAME.ips"
+    SUSPENDED_FILE="$STATE_DIR/ssh-$USERNAME.suspended"
 
-    STRIKE=$(cat "$STRIKE_FILE" 2>/dev/null || echo 0)
-    BLOCK_UNTIL=$(cat "$BLOCK_FILE" 2>/dev/null || echo 0)
+    STRIKE="$(cat "$STRIKE_FILE" 2>/dev/null || echo 0)"
+    BLOCK_UNTIL="$(cat "$BLOCK_FILE" 2>/dev/null || echo 0)"
 
     if [ "$BLOCK_UNTIL" -gt "$NOW" ] 2>/dev/null; then
-        pkill -u "$USERNAME" >/dev/null 2>&1 || true
+        usermod -L "$USERNAME" >/dev/null 2>&1 || true
+        pkill -KILL -u "$USERNAME" sshd >/dev/null 2>&1 || true
         continue
     fi
 
     if [ "$BLOCK_UNTIL" != "0" ] && [ "$BLOCK_UNTIL" -le "$NOW" ] 2>/dev/null; then
-        rm -f "$BLOCK_FILE"
+        rm -f "$BLOCK_FILE" "$SUSPENDED_FILE"
         echo 0 > "$STRIKE_FILE"
         usermod -U "$USERNAME" >/dev/null 2>&1 || true
+        echo "$(date '+%F %T') SSH UNBLOCK $USERNAME" >> "$LOG_FILE"
     fi
 
-    IPS=$(who | awk -v u="$USERNAME" '$1 == u {print $5}' | tr -d '()' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | sort -u)
-    COUNT=$(echo "$IPS" | sed '/^$/d' | wc -l)
-    IPS_COMMA=$(echo "$IPS" | paste -sd "," -)
+    IPS="$(get_user_ips "$USERNAME")"
+    COUNT="$(echo "$IPS" | sed '/^$/d' | wc -l)"
+    IPS_COMMA="$(echo "$IPS" | paste -sd "," -)"
     [ -z "$IPS_COMMA" ] && IPS_COMMA="unknown"
     echo "$IPS_COMMA" > "$IPS_FILE"
 
@@ -51,14 +98,15 @@ for file in "$SSH_DIR"/*IP; do
         STRIKE=$((STRIKE + 1))
         echo "$STRIKE" > "$STRIKE_FILE"
 
-        if [ "$STRIKE" -ge 3 ]; then
-            BLOCK_UNTIL=$((NOW + 600))
+        if [ "$STRIKE" -ge "$MAX_STRIKE" ]; then
+            BLOCK_UNTIL=$((NOW + BLOCK_SECONDS))
             echo "$BLOCK_UNTIL" > "$BLOCK_FILE"
+            echo "$NOW" > "$SUSPENDED_FILE"
             usermod -L "$USERNAME" >/dev/null 2>&1 || true
-            pkill -u "$USERNAME" >/dev/null 2>&1 || true
+            pkill -KILL -u "$USERNAME" sshd >/dev/null 2>&1 || true
             echo "$(date '+%F %T') SSH BLOCK $USERNAME IP=$COUNT LIMIT=$LIMIT IPS=$IPS_COMMA" >> "$LOG_FILE"
         else
-            pkill -u "$USERNAME" >/dev/null 2>&1 || true
+            pkill -KILL -u "$USERNAME" sshd >/dev/null 2>&1 || true
             echo "$(date '+%F %T') SSH STRIKE $USERNAME STRIKE=$STRIKE IP=$COUNT LIMIT=$LIMIT IPS=$IPS_COMMA" >> "$LOG_FILE"
         fi
     fi
