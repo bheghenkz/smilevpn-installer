@@ -367,6 +367,16 @@ systemctl enable cron
 systemctl restart cron
 echo "✅ Cron jobs installed"
 
+echo "🔐 Preparing SSH runtime..."
+mkdir -p /run/sshd
+chmod 755 /run/sshd
+echo 'd /run/sshd 0755 root root -' > /etc/tmpfiles.d/sshd.conf
+systemd-tmpfiles --create || true
+
+# prevent old manual sshd listener from blocking ports
+pkill -f '/usr/sbin/sshd -D' 2>/dev/null || true
+sleep 1
+
 echo "🔐 Installing SSH stack..."
 bash modules/ssh.sh
 
