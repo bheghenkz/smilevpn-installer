@@ -1,32 +1,32 @@
 #!/bin/bash
+set -e
 
-USERNAME=$1
+USERNAME="$1"
 
 if [ -z "$USERNAME" ]; then
     echo "Usage: trojango-delete-account USERNAME"
     exit 1
 fi
 
-LOG="/etc/trojango/akun/log-create-${USERNAME}.log"
-if [ ! -f "$LOG" ]; then
-    echo "User not found: ${USERNAME}"
-    exit 1
-fi
+CONFIG="/etc/trojan-go/config.json"
 
-PASS=$(grep "^Password" "$LOG" | awk '{print $3}')
+python3 <<PY
+import json
+from pathlib import Path
 
-python3 - <<PY
-import json, os
-p="/etc/trojan-go/config.json"
-if os.path.exists(p):
-    data=json.load(open(p))
-    data["password"]=[x for x in data.get("password", []) if x != "${PASS}"]
-    open(p,"w").write(json.dumps(data, indent=2))
+p = Path("$CONFIG")
+data = json.loads(p.read_text())
+
+if "password" in data and isinstance(data["password"], list):
+    data["password"] = [x for x in data["password"] if x != "$USERNAME"]
+
+p.write_text(json.dumps(data, indent=2))
 PY
 
-rm -f /etc/trojango/${USERNAME}IP
-rm -f /etc/trojango/${USERNAME}
-rm -f /etc/trojango/akun/log-create-${USERNAME}.log
-rm -f /var/www/html/trojango-${USERNAME}.txt
+rm -f "/etc/trojan-go/akun/log-create-${USERNAME}.log"
+rm -f "/var/www/html/trojango-${USERNAME}.txt"
+rm -f "/etc/limit-state/trojango-${USERNAME}."*
 
-systemctl restart trojan-go >/dev/null 2>&1
+systemctl restart trojan-go >/dev/null 2>&1 || true
+
+echo "OK: trojan-go deleted ${USERNAME}"

@@ -73,6 +73,30 @@ expire_xray "tr" "trg" "/etc/trojan" "trojan"
 expire_xray "ss" "ssg" "/etc/shadowsocks" "shadowsocks"
 expire_xray "vr" "vr" "/etc/vlessreality" "vless-reality"
 
+
+# TROJAN-GO expire by log-create file
+if [ -d /etc/trojan-go/akun ]; then
+    changed=0
+
+    for file in /etc/trojan-go/akun/log-create-*.log; do
+        [ -f "$file" ] || continue
+
+        user="$(basename "$file" | sed 's/^log-create-//;s/\.log$//')"
+        exp="$(grep -i '^Expired' "$file" | awk '{print $3" "$4}')"
+        exp_ts="$(date -d "$exp" +%s 2>/dev/null || echo 0)"
+
+        if [ "$exp_ts" -gt 0 ] && [ "$now_ts" -ge "$exp_ts" ]; then
+            sed -i "/trojango\/${user}/d" /etc/trojan-go/config.json
+            sed -i "/${user}/d" /etc/trojan-go/config.json
+            rm -f "/var/www/html/trojango-${user}.txt"
+            rm -f "$file"
+            changed=1
+        fi
+    done
+
+    [ "$changed" = "1" ] && systemctl restart trojan-go 2>/dev/null || true
+fi
+
 mkdir -p /usr/local/etc/xray
 cp /etc/xray/config.json /usr/local/etc/xray/config.json 2>/dev/null || true
 systemctl restart xray 2>/dev/null || true
