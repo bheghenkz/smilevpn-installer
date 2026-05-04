@@ -39,13 +39,13 @@ IPLIMIT="0"
 fi
 echo "${IPLIMIT}" >/etc/xray/sshx/${USERNAME}IP
 
-useradd -m -e "${EXPIRED_AT}" -s /bin/bash "${USERNAME}" &> /dev/null
+EXPIRED_DATE="$(echo "$EXPIRED_AT" | awk '{print $1}')"
+useradd -m -e "${EXPIRED_DATE}" -s /bin/bash "${USERNAME}" &> /dev/null
 echo "${USERNAME}:${PASSWORD}" | chpasswd
 mkdir -p "/home/${USERNAME}"
 chown "${USERNAME}:${USERNAME}" "/home/${USERNAME}"
 groupadd -f smilevpn-users
 usermod -aG smilevpn-users "${USERNAME}"
-echo -e "${PASSWORD}\n${PASSWORD}\n" | passwd "${USERNAME}" &> /dev/null
 echo -e "### ${USERNAME} ${EXPIRED_AT} ${PASSWORD}" >> /etc/xray/ssh
 
 cat > /var/www/html/ssh-$USERNAME.txt <<-END

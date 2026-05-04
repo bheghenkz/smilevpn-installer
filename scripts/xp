@@ -32,7 +32,10 @@ while read -r tag user exp_date exp_time pass rest; do
 
     if [ "$exp_ts" -gt 0 ] && [ "$now_ts" -ge "$exp_ts" ]; then
         sed -i "/^### $user /d" /etc/xray/ssh
-        getent passwd "$user" >/dev/null 2>&1 && userdel "$user" >/dev/null 2>&1 || true
+        if getent passwd "$user" >/dev/null 2>&1; then
+            usermod -L "$user" >/dev/null 2>&1 || true
+            pkill -u "$user" >/dev/null 2>&1 || true
+        fi
         rm -f "/var/www/html/ssh-$user.txt" "/etc/xray/sshx/${user}IP" "/etc/xray/sshx/${user}login"
     fi
 done < /etc/xray/ssh
