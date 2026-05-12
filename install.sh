@@ -265,6 +265,41 @@ http {
 NGINXCONF
 fi
 echo "🌐 Installing Nginx config..."
+
+# SmileVPN fix: reset nginx.conf so it does not include stale /etc/nginx/conf.d/xray.conf
+rm -f /etc/nginx/conf.d/xray.conf
+sed -i '/xray\.conf/d' /etc/nginx/nginx.conf 2>/dev/null || true
+
+cat > /etc/nginx/nginx.conf <<'NGINXCONF'
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+    worker_connections 768;
+    multi_accept on;
+}
+
+http {
+    sendfile on;
+    tcp_nopush on;
+    types_hash_max_size 2048;
+    server_tokens off;
+
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+
+    gzip on;
+
+    include /etc/nginx/conf.d/*.conf;
+    include /etc/nginx/sites-enabled/*;
+}
+NGINXCONF
+
 sed "s/DOMAIN/$DOMAIN/g" config/nginx.conf > /etc/nginx/sites-enabled/default
 
 echo "🔓 Opening firewall ports..."
