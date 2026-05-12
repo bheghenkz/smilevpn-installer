@@ -85,13 +85,9 @@ TCP TLS    : 2087
 WS TLS     : 2087
 Path       : /trojango/${USERNAME}
 
-<<<<<<< HEAD
 🚀 UDP CUSTOM
-UDP Port   : 1-65535
 BadVPN     : 7300-7302
 
-=======
->>>>>>> 9597f3a39a3a03153bfcb749f7317def6c29f7b8
 🔗 LINK
 OpenClash  : https://${DOMAIN}/trojango-${USERNAME}.txt
 

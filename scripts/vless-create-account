@@ -118,11 +118,7 @@ gRPC       : 443
 Path       : /vless/${USERNAME}
 Service    : vless-grpc
 
-<<<<<<< HEAD
-UDP Port   : 1-65535
 
-=======
->>>>>>> 9597f3a39a3a03153bfcb749f7317def6c29f7b8
 🔗 LINK
 OpenClash  : https://${DOMAIN}/vless-${USERNAME}.txt
 

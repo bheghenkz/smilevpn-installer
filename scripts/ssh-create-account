@@ -49,15 +49,11 @@ usermod -aG smilevpn-users "${USERNAME}"
 echo -e "### ${USERNAME} ${EXPIRED_AT} ${PASSWORD}" >> /etc/xray/ssh
 
 cat > /var/www/html/ssh-$USERNAME.txt <<-END
-=========================
    SmileVpn Tunneling 
-=========================
 
 Format SSH OVPN Account
-=========================
 Username         : $USERNAME
 Password         : $PASSWORD
-=========================
 ISP              : $ISP
 CITY             : $CITY
 IP               : $IP
@@ -74,18 +70,12 @@ Port OVPN SSL    : -
 Port OVPN TCP    : 1194
 Port OVPN UDP    : 2200
 BadVPN UDP       : 7300, 7301, 7302
-=================================
 Payload WSS: GET wss://$DOMAIN/ HTTP/1.1[crlf]Host: $DOMAIN[crlf]Upgrade: websocket[crlf][crlf] 
-=================================
 Payload Enchanced: PATCH / HTTP/1.1[crlf]Host: [host][crlf]Host: ${DOMAIN}[crlf]Upgrade: websocket[crlf]HTTP/ 3600[crlf]Sec-WebSocket-Extensions: superspeed[crlf]
-=================================
 SSH OpenSSH : $DOMAIN:2222@$USERNAME:$PASSWORD
 SSH Dropbear: $DOMAIN:109@$USERNAME:$PASSWORD
-=================================
 OVPN Download : https://$DOMAIN/
-=================================
 Berakhir Pada    : $EXPIRED_AT
-=================================
 
 END
 
@@ -111,13 +101,10 @@ WS         : -
 SSL WS     : -
 UDPGW      : 7300, 7301, 7302
 
-<<<<<<< HEAD
 🚀 UDP CUSTOM
 UDP Port   : 1-65535
 BadVPN     : 7300-7302
 
-=======
->>>>>>> 9597f3a39a3a03153bfcb749f7317def6c29f7b8
 🔗 LINK
 OVPN       : https://${DOMAIN}/
 Save       : https://${DOMAIN}/ssh-${USERNAME}.txt

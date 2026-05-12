@@ -74,13 +74,9 @@ Flow       : xtls-rprx-vision
 Short ID   : ${SHORT_ID}
 Public Key : ${PUBLIC_KEY}
 
-<<<<<<< HEAD
 🚀 UDP CUSTOM
-UDP Port   : 1-65535
 BadVPN     : 7300-7302
 
-=======
->>>>>>> 9597f3a39a3a03153bfcb749f7317def6c29f7b8
 🔗 LINK
 OpenClash  : https://${DOMAIN}/vless-reality-${USERNAME}.txt
 

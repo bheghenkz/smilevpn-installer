@@ -124,11 +124,7 @@ gRPC       : 443
 Path       : /trojan-ws/${USERNAME}
 Service    : trojan-grpc
 
-<<<<<<< HEAD
-UDP Port   : 1-65535
 
-=======
->>>>>>> 9597f3a39a3a03153bfcb749f7317def6c29f7b8
 🔗 LINK
 OpenClash  : https://${DOMAIN}/trojan-${USERNAME}.txt
 
