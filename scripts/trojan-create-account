@@ -1,0 +1,143 @@
+#!/bin/bash
+set -e
+USERNAME="$1"
+EXPIRED_AT="$2"
+IPLIMIT="${3:-5}"
+if [ -z "$USERNAME" ] || [ -z "$EXPIRED_AT" ]; then echo "Usage: trojan-create-account USERNAME expired|trial IPLIMIT"; exit 1; fi
+[ "$EXPIRED_AT" = "trial" ] && EXPIRED_AT=$(date -d "+1 hour" "+%Y-%m-%d %H:%M")
+[ "$IPLIMIT" = "0" ] && IPLIMIT="9999"
+IP=$(cat /etc/xray/ip 2>/dev/null || curl -4 -s ipv4.icanhazip.com || true)
+ISP=$(cat /etc/xray/isp 2>/dev/null || echo "Unknown ISP")
+CITY=$(cat /etc/xray/city 2>/dev/null || echo "Unknown City")
+DOMAIN=$(cat /etc/xray/domain)
+UUID=$(cat /proc/sys/kernel/random/uuid)
+mkdir -p /etc/trojan/akun /var/www/html
+echo "$IPLIMIT" >/etc/trojan/${USERNAME}IP
+sed -i "/^#tr ${USERNAME} /,/^,{/d" /etc/xray/config.json
+sed -i "/^#trg ${USERNAME} /,/^,{/d" /etc/xray/config.json
+sed -i '/#trojanws$/a\#tr '"$USERNAME $EXPIRED_AT"'\
+,{"password": "'""${UUID}""'","email": "'""${USERNAME}""'"}' /etc/xray/config.json
+sed -i '/#trojangrpc$/a\#trg '"$USERNAME $EXPIRED_AT"'\
+,{"password": "'""${UUID}""'","email": "'""${USERNAME}""'"}' /etc/xray/config.json
+sync_xray() {
+    mkdir -p /usr/local/etc/xray
+
+    python3 <<'PYX'
+import re
+from pathlib import Path
+
+src = Path("/etc/xray/config.json")
+dst = Path("/usr/local/etc/xray/config.json")
+
+s = src.read_text()
+s = re.sub(r'^\s*#.*$', '', s, flags=re.MULTILINE)
+s = re.sub(r',\s*}', '}', s)
+s = re.sub(r',\s*]', ']', s)
+
+dst.write_text(s)
+PYX
+
+    chmod 755 /usr/local/etc /usr/local/etc/xray
+    chmod 644 /usr/local/etc/xray/config.json
+
+    if command -v xray >/dev/null 2>&1; then
+        xray run -test -config /usr/local/etc/xray/config.json >/tmp/smilevpn-xray-test.log 2>&1 || {
+            cat /tmp/smilevpn-xray-test.log
+            exit 1
+        }
+    fi
+
+    systemctl restart xray >/dev/null 2>&1 || true
+}
+sync_xray
+TROJAN_LINK_TLS="trojan://${UUID}@${DOMAIN}:443?path=%2Ftrojan-ws%2F${USERNAME}&security=tls&host=${DOMAIN}&type=ws&sni=${DOMAIN}#${USERNAME}"
+TROJAN_LINK_NTLS="trojan://${UUID}@${DOMAIN}:80?path=%2Ftrojan-ws%2F${USERNAME}&security=none&host=${DOMAIN}&type=ws#${USERNAME}"
+TROJAN_LINK_GRPC="trojan://${UUID}@${DOMAIN}:443?mode=gun&security=tls&type=grpc&serviceName=trojan-grpc&sni=${DOMAIN}#${USERNAME}"
+cat >/var/www/html/trojan-${USERNAME}.txt <<END
+proxies:
+- name: ${USERNAME}-TROJAN-WS-TLS
+  server: ${DOMAIN}
+  port: 443
+  type: trojan
+  password: ${UUID}
+  sni: ${DOMAIN}
+  network: ws
+  tls: true
+  skip-cert-verify: true
+  ws-opts:
+    path: /trojan-ws/${USERNAME}
+    headers:
+      Host: ${DOMAIN}
+  udp: true
+
+- name: ${USERNAME}-TROJAN-WS-NTLS
+  server: ${DOMAIN}
+  port: 80
+  type: trojan
+  password: ${UUID}
+  sni: ${DOMAIN}
+  network: ws
+  tls: false
+  skip-cert-verify: true
+  ws-opts:
+    path: /trojan-ws/${USERNAME}
+    headers:
+      Host: ${DOMAIN}
+  udp: true
+
+- name: ${USERNAME}-TROJAN-GRPC
+  server: ${DOMAIN}
+  port: 443
+  type: trojan
+  password: ${UUID}
+  sni: ${DOMAIN}
+  network: grpc
+  tls: true
+  skip-cert-verify: true
+  grpc-opts:
+    grpc-service-name: trojan-grpc
+  udp: true
+
+# Links
+${TROJAN_LINK_TLS}
+${TROJAN_LINK_NTLS}
+${TROJAN_LINK_GRPC}
+END
+cat >/etc/trojan/akun/log-create-${USERNAME}.log <<END
+🔐 TROJAN ACCOUNT
+
+Username   : ${USERNAME}
+Key        : ${UUID}
+Expired    : ${EXPIRED_AT}
+Limit IP   : ${IPLIMIT} IP
+
+🌐 SERVER
+Domain     : ${DOMAIN}
+IP         : ${IP}
+ISP        : ${ISP}
+City       : ${CITY}
+
+🔌 PORT
+TLS        : 443
+Non TLS    : 80
+gRPC       : 443
+Path       : /trojan-ws/${USERNAME}
+Service    : trojan-grpc
+
+🚀 UDP CUSTOM
+UDP Port   : 1-65535
+BadVPN     : 7300-7302
+
+🔗 LINK
+OpenClash  : https://${DOMAIN}/trojan-${USERNAME}.txt
+
+TLS
+${TROJAN_LINK_TLS}
+
+Non TLS
+${TROJAN_LINK_NTLS}
+
+gRPC
+${TROJAN_LINK_GRPC}
+END
+cat /etc/trojan/akun/log-create-${USERNAME}.log

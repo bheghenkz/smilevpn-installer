@@ -1,0 +1,35 @@
+#!/bin/bash
+set -e
+
+USERNAME="$1"
+EXPIRED_AT="$2"
+
+if [ -z "$USERNAME" ] || [ -z "$EXPIRED_AT" ]; then
+    echo "Usage: ssh-renew-account USERNAME EXPIRED_AT"
+    exit 1
+fi
+
+if ! id "$USERNAME" >/dev/null 2>&1; then
+    echo "ERROR: user $USERNAME not found"
+    exit 1
+fi
+
+EXPIRED_DATE="$(echo "$EXPIRED_AT" | awk '{print $1}')"
+
+usermod -U "$USERNAME" >/dev/null 2>&1 || true
+chage -E "$EXPIRED_DATE" "$USERNAME" >/dev/null 2>&1 || true
+
+OLD_LINE="$(grep -wE "^### ${USERNAME} " /etc/xray/ssh | head -n1 || true)"
+PASSWORD="$(echo "$OLD_LINE" | awk '{print $NF}')"
+[ -z "$PASSWORD" ] && PASSWORD="-"
+
+sed -i "/^### ${USERNAME} /d" /etc/xray/ssh
+echo "### ${USERNAME} ${EXPIRED_AT} ${PASSWORD}" >> /etc/xray/ssh
+
+rm -f "/etc/limit-state/ssh-${USERNAME}.strike"
+rm -f "/etc/limit-state/ssh-${USERNAME}.blocked_until"
+rm -f "/etc/limit-state/ssh-${USERNAME}.suspended"
+rm -f "/etc/limit-state/ssh-${USERNAME}.ips"
+rm -f "/etc/limit-state/ssh-${USERNAME}.notified"
+
+echo "OK: SSH renewed for ${USERNAME} until ${EXPIRED_AT}"

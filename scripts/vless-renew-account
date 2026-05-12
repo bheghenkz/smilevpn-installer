@@ -1,0 +1,52 @@
+#!/bin/bash
+set -e
+
+USERNAME="$1"
+EXPIRED_AT="$2"
+
+if [ -z "$USERNAME" ] || [ -z "$EXPIRED_AT" ]; then
+    echo "Usage: vless-renew-account USERNAME YYYY-MM-DD[ HH:MM]"
+    exit 1
+fi
+
+CONFIG="/etc/xray/config.json"
+
+sed -i "s|^#vl $USERNAME .*|#vl $USERNAME $EXPIRED_AT|g" "$CONFIG"
+sed -i "s|^#vlg $USERNAME .*|#vlg $USERNAME $EXPIRED_AT|g" "$CONFIG"
+
+LOG="/etc/vless/akun/log-create-${USERNAME}.log"
+[ -f "$LOG" ] && sed -i "s/^Expired.*/Expired    : $EXPIRED_AT/" "$LOG" || true
+
+HTML="/var/www/html/vless-${USERNAME}.txt"
+[ -f "$HTML" ] && sed -i "s/^Expired.*/Expired    : $EXPIRED_AT/" "$HTML" || true
+
+mkdir -p /usr/local/etc/xray
+
+python3 <<'PYX'
+import re
+from pathlib import Path
+
+src = Path("/etc/xray/config.json")
+dst = Path("/usr/local/etc/xray/config.json")
+
+s = src.read_text()
+s = re.sub(r'^\s*#.*$', '', s, flags=re.MULTILINE)
+s = re.sub(r',\s*}', '}', s)
+s = re.sub(r',\s*]', ']', s)
+
+dst.write_text(s)
+PYX
+
+chmod 755 /usr/local/etc /usr/local/etc/xray
+chmod 644 /usr/local/etc/xray/config.json
+
+xray run -test -config /usr/local/etc/xray/config.json >/tmp/smilevpn-xray-test.log 2>&1 || {
+    cat /tmp/smilevpn-xray-test.log
+    exit 1
+}
+
+systemctl restart xray >/dev/null 2>&1 || true
+
+rm -f "/etc/limit-state/vless-${USERNAME}."*
+
+echo "OK: vless renewed for $USERNAME until $EXPIRED_AT"

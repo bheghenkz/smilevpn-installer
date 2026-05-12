@@ -1,0 +1,22 @@
+#!/bin/bash
+set -e
+
+USERNAME="$1"
+
+if [ -z "$USERNAME" ]; then
+    echo "Usage: ssh-delete-account USERNAME"
+    exit 1
+fi
+
+pkill -u "$USERNAME" >/dev/null 2>&1 || true
+userdel -r "$USERNAME" >/dev/null 2>&1 || userdel "$USERNAME" >/dev/null 2>&1 || true
+
+sed -i "/^### ${USERNAME} /d" /etc/xray/ssh
+
+rm -f "/var/www/html/ssh-${USERNAME}.txt"
+rm -f "/etc/xray/sshx/${USERNAME}IP"
+rm -f "/etc/xray/sshx/${USERNAME}login"
+rm -f "/etc/xray/sshx/akun/log-create-${USERNAME}.log"
+rm -f "/etc/limit-state/ssh-${USERNAME}."*
+
+echo "OK: SSH deleted for ${USERNAME}"

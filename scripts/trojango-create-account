@@ -1,0 +1,101 @@
+#!/bin/bash
+set -e
+USERNAME="$1"; EXPIRED_AT="$2"; IPLIMIT="${3:-5}"
+if [ -z "$USERNAME" ] || [ -z "$EXPIRED_AT" ]; then echo "Usage: trojango-create-account USERNAME expired|trial IPLIMIT"; exit 1; fi
+[ "$EXPIRED_AT" = "trial" ] && EXPIRED_AT=$(date -d "+1 hour" "+%Y-%m-%d %H:%M")
+[ "$IPLIMIT" = "0" ] && IPLIMIT="9999"
+DOMAIN=$(cat /etc/xray/domain)
+IP=$(cat /etc/xray/ip 2>/dev/null || curl -4 -s ipv4.icanhazip.com || true)
+CITY=$(cat /etc/xray/city 2>/dev/null || echo "Unknown City")
+PASS=$(openssl rand -hex 8)
+mkdir -p /etc/trojango/akun /etc/trojan-go /var/www/html
+echo "$IPLIMIT" >/etc/trojango/${USERNAME}IP
+python3 - <<PY3
+import json, os
+p="/etc/trojan-go/config.json"
+if os.path.exists(p):
+    data=json.load(open(p))
+else:
+    data={"run_type":"server","local_addr":"0.0.0.0","local_port":2087,"remote_addr":"127.0.0.1","remote_port":80,"password":[],"ssl":{"cert":"/etc/xray/ssl/fullchain.pem","key":"/etc/xray/ssl/privkey.pem"}}
+old_log=f"/etc/trojango/akun/log-create-${USERNAME}.log"
+if os.path.exists(old_log):
+    for line in open(old_log):
+        if line.startswith("Password"):
+            old=line.split()[-1]
+            data["password"]=[x for x in data.get("password",[]) if x != old]
+pw="${PASS}"
+data.setdefault("password", [])
+if pw not in data["password"]:
+    data["password"].append(pw)
+data.setdefault("websocket", {})
+data["websocket"]["enabled"] = True
+data["websocket"]["path"] = "/trojango/${USERNAME}"
+open(p,"w").write(json.dumps(data, indent=2))
+PY3
+systemctl restart trojan-go >/dev/null 2>&1 || true
+LINK_TCP="trojan://${PASS}@${DOMAIN}:2087?sni=${DOMAIN}#${USERNAME}-TCP"
+LINK_WS="trojan://${PASS}@${DOMAIN}:2087?type=ws&security=tls&host=${DOMAIN}&path=%2Ftrojango%2F${USERNAME}&sni=${DOMAIN}#${USERNAME}-WS"
+cat >/var/www/html/trojango-${USERNAME}.txt <<END
+proxies:
+- name: ${USERNAME}-TROJANGO-TCP
+  server: ${DOMAIN}
+  port: 2087
+  type: trojan
+  password: ${PASS}
+  sni: ${DOMAIN}
+  network: tcp
+  tls: true
+  skip-cert-verify: true
+  udp: true
+
+- name: ${USERNAME}-TROJANGO-WS
+  server: ${DOMAIN}
+  port: 2087
+  type: trojan
+  password: ${PASS}
+  sni: ${DOMAIN}
+  network: ws
+  tls: true
+  skip-cert-verify: true
+  ws-opts:
+    path: /trojango/${USERNAME}
+    headers:
+      Host: ${DOMAIN}
+  udp: true
+
+# Links
+${LINK_TCP}
+${LINK_WS}
+END
+cat >/etc/trojango/akun/log-create-${USERNAME}.log <<END
+🔐 TROJAN-GO ACCOUNT
+
+Username   : ${USERNAME}
+Password   : ${PASS}
+Expired    : ${EXPIRED_AT}
+Limit IP   : ${IPLIMIT} IP
+
+🌐 SERVER
+Domain     : ${DOMAIN}
+IP         : ${IP}
+City       : ${CITY}
+
+🔌 PORT
+TCP TLS    : 2087
+WS TLS     : 2087
+Path       : /trojango/${USERNAME}
+
+🚀 UDP CUSTOM
+UDP Port   : 1-65535
+BadVPN     : 7300-7302
+
+🔗 LINK
+OpenClash  : https://${DOMAIN}/trojango-${USERNAME}.txt
+
+TCP
+${LINK_TCP}
+
+WS
+${LINK_WS}
+END
+cat /etc/trojango/akun/log-create-${USERNAME}.log

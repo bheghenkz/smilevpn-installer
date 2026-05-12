@@ -1,0 +1,20 @@
+#!/bin/bash
+set -e
+
+USERNAME="$1"
+EXPIRED_AT="$2"
+
+if [ -z "$USERNAME" ] || [ -z "$EXPIRED_AT" ]; then
+    echo "Usage: trojango-renew-account USERNAME YYYY-MM-DD[ HH:MM]"
+    exit 1
+fi
+
+LOG="/etc/trojan-go/akun/log-create-${USERNAME}.log"
+HTML="/var/www/html/trojango-${USERNAME}.txt"
+
+[ -f "$LOG" ] && sed -i "s/^Expired.*/Expired    : ${EXPIRED_AT}/" "$LOG" || true
+[ -f "$HTML" ] && sed -i "s/^Expired.*/Expired    : ${EXPIRED_AT}/" "$HTML" || true
+
+rm -f "/etc/limit-state/trojango-${USERNAME}."*
+
+echo "OK: trojan-go renewed ${USERNAME} until ${EXPIRED_AT}"
