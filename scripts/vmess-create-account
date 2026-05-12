@@ -128,9 +128,7 @@ Path       : /vmess/${USERNAME}
 Service    : vmess-grpc
 
 <<<<<<< HEAD
-🚀 UDP CUSTOM
 UDP Port   : 1-65535
-BadVPN     : 7300-7302
 
 =======
 >>>>>>> 9597f3a39a3a03153bfcb749f7317def6c29f7b8
