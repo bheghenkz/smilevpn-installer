@@ -111,10 +111,13 @@ WS         : -
 SSL WS     : -
 UDPGW      : 7300, 7301, 7302
 
+<<<<<<< HEAD
 🚀 UDP CUSTOM
 UDP Port   : 1-65535
 BadVPN     : 7300-7302
 
+=======
+>>>>>>> 9597f3a39a3a03153bfcb749f7317def6c29f7b8
 🔗 LINK
 OVPN       : https://${DOMAIN}/
 Save       : https://${DOMAIN}/ssh-${USERNAME}.txt

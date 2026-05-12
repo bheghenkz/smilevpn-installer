@@ -509,10 +509,13 @@ fi
 
 echo "✅ UDPGW ACTIVE (7300-7302)"
 
+<<<<<<< HEAD
 echo "🚀 Installing UDP Custom..."
 bash modules/udp-custom.sh
 echo "✅ UDP Custom ACTIVE"
 
+=======
+>>>>>>> 9597f3a39a3a03153bfcb749f7317def6c29f7b8
 echo "SUCCESS" > "$SMILEVPN_STATUS_FILE"
 echo "SMILEVPN_INSTALL_DONE"
 echo "✅ SmileVPN installer DONE"
