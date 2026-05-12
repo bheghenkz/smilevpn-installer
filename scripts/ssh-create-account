@@ -103,12 +103,11 @@ UDPGW      : 7300, 7301, 7302
 
 🚀 UDP CUSTOM
 UDP Port   : 1-65535
-BadVPN     : 7300-7302
+HTTP UDP   : ${DOMAIN}:1-65535@${USERNAME}:${PASSWORD}
 
 🔗 LINK
 OVPN       : https://${DOMAIN}/
 Save       : https://${DOMAIN}/ssh-${USERNAME}.txt
-HTTP UDP   : ${DOMAIN}:1-65535@${USERNAME}:${PASSWORD}
 
 📡 PAYLOAD
 GET / HTTP/1.1[crlf]
