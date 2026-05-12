@@ -71,7 +71,7 @@ SERVER_IP="$(curl -4 -s https://ipv4.icanhazip.com | tr -d '\n' || true)"
 [ -n "$SERVER_IP" ] || SERVER_IP="$(hostname -I | awk '{print $1}')"
 
 curl -s https://ipinfo.io/org | sed 's/^AS[0-9]* //g' > /etc/xray/isp || true
-curl -s https://ipinfo.io/city > /etc/xray/city || true
+curl -s --max-time 5 "https://ipinfo.io/${SERVER_IP}/city" > /etc/xray/city || true
 [ -s /etc/xray/isp ] || echo "Unknown ISP" > /etc/xray/isp
 [ -s /etc/xray/city ] || echo "Unknown City" > /etc/xray/city
 
