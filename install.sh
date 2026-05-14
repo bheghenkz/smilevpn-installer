@@ -547,8 +547,11 @@ echo "✅ UDPGW ACTIVE (7300-7302)"
 
 echo "🚀 Installing UDP Custom..."
 bash modules/udp-custom.sh
-bash modules/zivpn.sh
 echo "✅ UDP Custom ACTIVE"
+
+echo "🚀 Installing ZiVPN..."
+bash modules/zivpn.sh
+echo "✅ ZiVPN ACTIVE"
 
 echo "SUCCESS" > "$SMILEVPN_STATUS_FILE"
 echo "SMILEVPN_INSTALL_DONE"
