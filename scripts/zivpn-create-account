@@ -1,43 +1,74 @@
 #!/bin/bash
+set -e
+
 DB="/etc/zivpn/users.db"
 LIMITDB="/etc/zivpn/user-limit.db"
 CONFIG="/etc/zivpn/config.json"
 
-read -p "Username : " user
-read -p "Expired (days): " days
-read -p "Limit IP : " iplimit
+user="${1:-}"
+expired_input="${2:-}"
+iplimit="${3:-}"
+
+[ -n "$user" ] || read -p "Username : " user
+[ -n "$expired_input" ] || read -p "Expired (days/1h/YYYY-MM-DD): " expired_input
+[ -n "$iplimit" ] || read -p "Limit IP : " iplimit
 
 pass="$user"
-exp=$(date -d "$days days" +"%s")
 DOMAIN=$(cat /etc/xray/domain 2>/dev/null || hostname)
 
-sed -i "/^${user}:/d" "$DB" 2>/dev/null
-sed -i "/^${user}:/d" "$LIMITDB" 2>/dev/null
+mkdir -p /etc/zivpn
+touch "$DB" "$LIMITDB"
+
+if echo "$expired_input" | grep -Eq "^[0-9]+h$"; then
+  hours="${expired_input%h}"
+  exp=$(date -d "$hours hours" +"%s")
+  exp_text=$(date -d "$hours hours" +"%d %b %Y %H:%M")
+elif echo "$expired_input" | grep -Eq "^[0-9]+$"; then
+  exp=$(date -d "$expired_input days" +"%s")
+  exp_text=$(date -d "$expired_input days" +"%d %b %Y")
+else
+  exp=$(date -d "$expired_input" +"%s")
+  exp_text=$(date -d "$expired_input" +"%d %b %Y %H:%M")
+fi
+
+sed -i "/^${user}:/d" "$DB" 2>/dev/null || true
+sed -i "/^${user}:/d" "$LIMITDB" 2>/dev/null || true
+
 echo "${user}:${exp}" >> "$DB"
 echo "${user}:${iplimit}" >> "$LIMITDB"
 
 python3 - <<PY
-import json
+import json, os
 path="$CONFIG"
 user="$user"
-with open(path) as f:
-    data=json.load(f)
+
+data={}
+if os.path.exists(path):
+    try:
+        with open(path) as f:
+            data=json.load(f)
+    except Exception:
+        data={}
+
 cfg=data.setdefault("auth",{}).setdefault("config",[])
+
 if user not in cfg:
     cfg.append(user)
+
 with open(path,"w") as f:
     json.dump(data,f,indent=2)
 PY
 
-systemctl restart zivpn
+systemctl restart zivpn 2>/dev/null || service zivpn restart 2>/dev/null || true
 
-clear
-echo "━━━━━━━━━━━━━━━━━━━"
-echo "   ZIVPN ACCOUNT"
-echo "━━━━━━━━━━━━━━━━━━━"
-echo "Username : $user"
-echo "Password : $pass"
-echo "Domain   : $DOMAIN"
-echo "Limit IP : $iplimit"
-echo "Expired  : $(date -d "$days days" +"%d %b %Y")"
-echo "━━━━━━━━━━━━━━━━━━━"
+cat <<OUT
+━━━━━━━━━━━━━━━━━━━
+   ZIVPN ACCOUNT
+━━━━━━━━━━━━━━━━━━━
+Username : $user
+Password : $pass
+Domain   : $DOMAIN
+Limit IP : $iplimit
+Expired  : $exp_text
+━━━━━━━━━━━━━━━━━━━
+OUT

@@ -1,27 +1,36 @@
 #!/bin/bash
+set -e
+
 DB="/etc/zivpn/users.db"
 
-read -p "Username : " user
-read -p "Extend Days : " days
+user="${1:-}"
+expired_input="${2:-}"
+
+[ -n "$user" ] || read -p "Username : " user
+[ -n "$expired_input" ] || read -p "Extend Days/YYYY-MM-DD : " expired_input
 
 if ! grep -q "^${user}:" "$DB"; then
     echo "User not found"
     exit 1
 fi
 
-oldexp=$(grep "^${user}:" "$DB" | cut -d: -f2)
-now=$(date +%s)
+if echo "$expired_input" | grep -Eq "^[0-9]+$"; then
+    oldexp=$(grep "^${user}:" "$DB" | cut -d: -f2)
+    now=$(date +%s)
 
-if [ "$oldexp" -lt "$now" ]; then
-    newexp=$(date -d "$days days" +"%s")
+    if [ "$oldexp" -lt "$now" ]; then
+        newexp=$(date -d "$expired_input days" +"%s")
+    else
+        newexp=$((oldexp + expired_input*86400))
+    fi
 else
-    newexp=$((oldexp + days*86400))
+    newexp=$(date -d "$expired_input" +"%s")
 fi
 
 sed -i "s/^${user}:.*/${user}:${newexp}/" "$DB"
-systemctl restart zivpn
 
-clear
+systemctl restart zivpn 2>/dev/null || service zivpn restart 2>/dev/null || true
+
 echo "━━━━━━━━━━━━━━━━━━━"
 echo "  ZIVPN RENEWED"
 echo "━━━━━━━━━━━━━━━━━━━"
