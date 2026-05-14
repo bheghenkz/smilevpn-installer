@@ -12,6 +12,16 @@ chmod +x /usr/local/bin/zivpn
 
 tar -xzvf /root/smilevpn-installer/zivpn-assets/zivpn-config.tar.gz -C /
 
+# Reuse Xray/Certbot SSL for ZiVPN.
+# Xray remains the main cert owner; ZiVPN only copies it.
+if [ -s /etc/xray/ssl/fullchain.pem ] && [ -s /etc/xray/ssl/privkey.pem ]; then
+    cp /etc/xray/ssl/fullchain.pem /etc/zivpn/zivpn.crt
+    cp /etc/xray/ssl/privkey.pem /etc/zivpn/zivpn.key
+fi
+
+chmod 644 /etc/zivpn/zivpn.crt 2>/dev/null || true
+chmod 600 /etc/zivpn/zivpn.key 2>/dev/null || true
+
 cp /root/smilevpn-installer/zivpn-assets/zivpn.service /etc/systemd/system/
 cp /root/smilevpn-installer/zivpn-assets/zivpn-api.service /etc/systemd/system/
 
