@@ -1,0 +1,86 @@
+#!/bin/bash
+set -e
+USERNAME="$1"; EXPIRED_AT="$2"; IPLIMIT="${3:-5}"
+if [ -z "$USERNAME" ] || [ -z "$EXPIRED_AT" ]; then echo "Usage: vless-reality-create-account USERNAME expired|trial IPLIMIT"; exit 1; fi
+[ "$EXPIRED_AT" = "trial" ] && EXPIRED_AT=$(date -d "+1 hour" "+%Y-%m-%d %H:%M")
+[ "$IPLIMIT" = "0" ] && IPLIMIT="9999"
+IP=$(cat /etc/xray/ip 2>/dev/null || curl -4 -s ipv4.icanhazip.com || true)
+ISP=$(cat /etc/xray/isp 2>/dev/null || echo "Unknown ISP")
+CITY=$(cat /etc/xray/city 2>/dev/null || echo "Unknown City")
+DOMAIN=$(cat /etc/xray/domain)
+PUBLIC_KEY=$(cat /etc/xray/reality_public)
+SHORT_ID=$(cat /etc/xray/reality_short)
+SNI="www.cloudflare.com"
+UUID=$(cat /proc/sys/kernel/random/uuid)
+mkdir -p /etc/vlessreality/akun /var/www/html
+echo "$IPLIMIT" >/etc/vlessreality/${USERNAME}IP
+sed -i "/^#vr ${USERNAME} /,/^,{/d" /etc/xray/config.json
+sed -i '/#vlessreality$/a\#vr '"$USERNAME $EXPIRED_AT"'\
+,{"id": "'""${UUID}""'","flow": "xtls-rprx-vision","email": "'""${USERNAME}""'"}' /etc/xray/config.json
+sync_xray() {
+    mkdir -p /usr/local/etc/xray
+    mkdir -p /usr/local/etc/xray
+cp /etc/xray/config.json /usr/local/etc/xray/config.json
+chmod 755 /usr/local/etc /usr/local/etc/xray
+chmod 644 /usr/local/etc/xray/config.json
+    if command -v xray >/dev/null 2>&1; then
+        xray run -test -config /usr/local/etc/xray/config.json >/tmp/smilevpn-xray-test.log 2>&1 || {
+            cat /tmp/smilevpn-xray-test.log
+            exit 1
+        }
+    fi
+    systemctl restart xray >/dev/null 2>&1 || true
+}
+sync_xray
+VR_LINK="vless://${UUID}@${DOMAIN}:8443?security=reality&encryption=none&type=tcp&flow=xtls-rprx-vision&sni=${SNI}&fp=chrome&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}#${USERNAME}"
+cat >/var/www/html/vless-reality-${USERNAME}.txt <<END
+proxies:
+- name: ${USERNAME}-VLESS-REALITY
+  server: ${DOMAIN}
+  port: 8443
+  type: vless
+  uuid: ${UUID}
+  flow: xtls-rprx-vision
+  network: tcp
+  tls: true
+  servername: ${SNI}
+  client-fingerprint: chrome
+  reality-opts:
+    public-key: ${PUBLIC_KEY}
+    short-id: ${SHORT_ID}
+  udp: true
+
+# Link
+${VR_LINK}
+END
+cat >/etc/vlessreality/akun/log-create-${USERNAME}.log <<END
+🔐 VLESS REALITY ACCOUNT
+
+Username   : ${USERNAME}
+UUID       : ${UUID}
+Expired    : ${EXPIRED_AT}
+Limit IP   : ${IPLIMIT} IP
+
+🌐 SERVER
+Domain     : ${DOMAIN}
+IP         : ${IP}
+ISP        : ${ISP}
+City       : ${CITY}
+
+🔌 PORT
+Reality    : 8443
+SNI        : ${SNI}
+Flow       : xtls-rprx-vision
+Short ID   : ${SHORT_ID}
+Public Key : ${PUBLIC_KEY}
+
+🚀 UDP CUSTOM
+BadVPN     : 7300-7302
+
+🔗 LINK
+OpenClash  : https://${DOMAIN}/vless-reality-${USERNAME}.txt
+
+Reality
+${VR_LINK}
+END
+cat /etc/vlessreality/akun/log-create-${USERNAME}.log

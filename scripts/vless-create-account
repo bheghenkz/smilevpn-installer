@@ -1,0 +1,134 @@
+#!/bin/bash
+set -e
+USERNAME="$1"; EXPIRED_AT="$2"; IPLIMIT="${3:-5}"
+if [ -z "$USERNAME" ] || [ -z "$EXPIRED_AT" ]; then echo "Usage: vless-create-account USERNAME expired|trial IPLIMIT"; exit 1; fi
+[ "$EXPIRED_AT" = "trial" ] && EXPIRED_AT=$(date -d "+1 hour" "+%Y-%m-%d %H:%M")
+[ "$IPLIMIT" = "0" ] && IPLIMIT="9999"
+IP=$(cat /etc/xray/ip 2>/dev/null || curl -4 -s ipv4.icanhazip.com || true)
+ISP=$(cat /etc/xray/isp 2>/dev/null || echo "Unknown ISP")
+CITY=$(cat /etc/xray/city 2>/dev/null || echo "Unknown City")
+DOMAIN=$(cat /etc/xray/domain)
+UUID=$(cat /proc/sys/kernel/random/uuid)
+mkdir -p /etc/vless/akun /var/www/html
+echo "$IPLIMIT" >/etc/vless/${USERNAME}IP
+sed -i "/^#vl ${USERNAME} /,/^,{/d" /etc/xray/config.json
+sed -i "/^#vlg ${USERNAME} /,/^,{/d" /etc/xray/config.json
+sed -i '/#vless$/a\#vl '"$USERNAME $EXPIRED_AT"'\
+,{"id": "'""${UUID}""'","email": "'""${USERNAME}""'"}' /etc/xray/config.json
+sed -i '/#vlessgrpc$/a\#vlg '"$USERNAME $EXPIRED_AT"'\
+,{"id": "'""${UUID}""'","email": "'""${USERNAME}""'"}' /etc/xray/config.json
+sync_xray() {
+    mkdir -p /usr/local/etc/xray
+
+    python3 <<'PYX'
+import re
+from pathlib import Path
+
+src = Path("/etc/xray/config.json")
+dst = Path("/usr/local/etc/xray/config.json")
+
+s = src.read_text()
+s = re.sub(r'^\s*#.*$', '', s, flags=re.MULTILINE)
+s = re.sub(r',\s*}', '}', s)
+s = re.sub(r',\s*]', ']', s)
+
+dst.write_text(s)
+PYX
+
+    chmod 755 /usr/local/etc /usr/local/etc/xray
+    chmod 644 /usr/local/etc/xray/config.json
+
+    if command -v xray >/dev/null 2>&1; then
+        xray run -test -config /usr/local/etc/xray/config.json >/tmp/smilevpn-xray-test.log 2>&1 || {
+            cat /tmp/smilevpn-xray-test.log
+            exit 1
+        }
+    fi
+
+    systemctl restart xray >/dev/null 2>&1 || true
+}
+sync_xray
+VLESS_LINK_TLS="vless://${UUID}@${DOMAIN}:443?path=/vless/${USERNAME}&security=tls&encryption=none&type=ws&sni=${DOMAIN}#${USERNAME}"
+VLESS_LINK_NTLS="vless://${UUID}@${DOMAIN}:80?path=/vless/${USERNAME}&security=none&encryption=none&type=ws#${USERNAME}"
+VLESS_LINK_GRPC="vless://${UUID}@${DOMAIN}:443?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless-grpc&sni=${DOMAIN}#${USERNAME}"
+cat >/var/www/html/vless-${USERNAME}.txt <<END
+proxies:
+- name: ${USERNAME}-VLESS-WS-TLS
+  server: ${DOMAIN}
+  port: 443
+  type: vless
+  uuid: ${UUID}
+  tls: true
+  servername: ${DOMAIN}
+  network: ws
+  ws-opts:
+    path: /vless/${USERNAME}
+    headers:
+      Host: ${DOMAIN}
+  udp: true
+
+- name: ${USERNAME}-VLESS-WS-NTLS
+  server: ${DOMAIN}
+  port: 80
+  type: vless
+  uuid: ${UUID}
+  tls: false
+  network: ws
+  ws-opts:
+    path: /vless/${USERNAME}
+    headers:
+      Host: ${DOMAIN}
+  udp: true
+
+- name: ${USERNAME}-VLESS-GRPC
+  server: ${DOMAIN}
+  port: 443
+  type: vless
+  uuid: ${UUID}
+  tls: true
+  servername: ${DOMAIN}
+  network: grpc
+  grpc-opts:
+    grpc-service-name: vless-grpc
+  udp: true
+
+# Links
+${VLESS_LINK_TLS}
+${VLESS_LINK_NTLS}
+${VLESS_LINK_GRPC}
+END
+cat >/etc/vless/akun/log-create-${USERNAME}.log <<END
+🔐 VLESS ACCOUNT
+
+Username   : ${USERNAME}
+UUID       : ${UUID}
+Expired    : ${EXPIRED_AT}
+Limit IP   : ${IPLIMIT} IP
+
+🌐 SERVER
+Domain     : ${DOMAIN}
+IP         : ${IP}
+ISP        : ${ISP}
+City       : ${CITY}
+
+🔌 PORT
+TLS        : 443
+Non TLS    : 80
+gRPC       : 443
+Path       : /vless/${USERNAME}
+Service    : vless-grpc
+
+
+🔗 LINK
+OpenClash  : https://${DOMAIN}/vless-${USERNAME}.txt
+
+TLS
+${VLESS_LINK_TLS}
+
+Non TLS
+${VLESS_LINK_NTLS}
+
+gRPC
+${VLESS_LINK_GRPC}
+END
+cat /etc/vless/akun/log-create-${USERNAME}.log

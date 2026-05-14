@@ -1,0 +1,102 @@
+#!/bin/bash
+
+now_ts="$(date +%s)"
+
+parse_exp_ts() {
+    exp="$1"
+
+    # kalau format cuma tanggal, expire di awal hari itu
+    if echo "$exp" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+        date -d "$exp" +%s 2>/dev/null || echo 0
+    else
+        date -d "$exp" +%s 2>/dev/null || echo 0
+    fi
+}
+
+mkdir -p /etc/xray /etc/xray/sshx /etc/vmess /etc/vless /etc/trojan /etc/shadowsocks /etc/vlessreality /etc/trojango /var/www/html
+touch /etc/xray/ssh /etc/xray/config.json
+
+# SSH
+while read -r tag user exp_date exp_time pass rest; do
+    [ "$tag" = "###" ] || continue
+    [ -z "$user" ] && continue
+
+    if echo "$exp_time" | grep -Eq '^[0-9]{2}:[0-9]{2}'; then
+        exp="$exp_date $exp_time"
+    else
+        exp="$exp_date"
+        pass="$exp_time"
+    fi
+
+    exp_ts="$(parse_exp_ts "$exp")"
+
+    if [ "$exp_ts" -gt 0 ] && [ "$now_ts" -ge "$exp_ts" ]; then
+        sed -i "/^### $user /d" /etc/xray/ssh
+        if getent passwd "$user" >/dev/null 2>&1; then
+            usermod -L "$user" >/dev/null 2>&1 || true
+            pkill -u "$user" >/dev/null 2>&1 || true
+        fi
+        rm -f "/var/www/html/ssh-$user.txt" "/etc/xray/sshx/${user}IP" "/etc/xray/sshx/${user}login"
+    fi
+done < /etc/xray/ssh
+
+expire_xray() {
+    prefix="$1"
+    prefixg="$2"
+    dir="$3"
+    html="$4"
+
+    grep "^#$prefixg " /etc/xray/config.json | while read -r mark user exp_date exp_time uuid rest; do
+        [ -z "$user" ] && continue
+
+        if echo "$exp_time" | grep -Eq '^[0-9]{2}:[0-9]{2}'; then
+            exp="$exp_date $exp_time"
+        else
+            exp="$exp_date"
+            uuid="$exp_time"
+        fi
+
+        exp_ts="$(parse_exp_ts "$exp")"
+
+        if [ "$exp_ts" -gt 0 ] && [ "$now_ts" -ge "$exp_ts" ]; then
+            echo "### $user $exp $uuid" >> "$dir/akundelete"
+            sed -i "/^#$prefixg $user /,/^,{/d" /etc/xray/config.json
+            sed -i "/^#$prefix $user /,/^,{/d" /etc/xray/config.json
+            rm -f "/var/www/html/${html}-${user}.txt" "$dir/${user}IP" "$dir/${user}login"
+        fi
+    done
+}
+
+expire_xray "vm" "vmg" "/etc/vmess" "vmess"
+expire_xray "vl" "vlg" "/etc/vless" "vless"
+expire_xray "tr" "trg" "/etc/trojan" "trojan"
+expire_xray "ss" "ssg" "/etc/shadowsocks" "shadowsocks"
+expire_xray "vr" "vr" "/etc/vlessreality" "vless-reality"
+
+
+# TROJAN-GO expire by log-create file
+if [ -d /etc/trojan-go/akun ]; then
+    changed=0
+
+    for file in /etc/trojan-go/akun/log-create-*.log; do
+        [ -f "$file" ] || continue
+
+        user="$(basename "$file" | sed 's/^log-create-//;s/\.log$//')"
+        exp="$(grep -i '^Expired' "$file" | awk '{print $3" "$4}')"
+        exp_ts="$(date -d "$exp" +%s 2>/dev/null || echo 0)"
+
+        if [ "$exp_ts" -gt 0 ] && [ "$now_ts" -ge "$exp_ts" ]; then
+            sed -i "/trojango\/${user}/d" /etc/trojan-go/config.json
+            sed -i "/${user}/d" /etc/trojan-go/config.json
+            rm -f "/var/www/html/trojango-${user}.txt"
+            rm -f "$file"
+            changed=1
+        fi
+    done
+
+    [ "$changed" = "1" ] && systemctl restart trojan-go 2>/dev/null || true
+fi
+
+mkdir -p /usr/local/etc/xray
+cp /etc/xray/config.json /usr/local/etc/xray/config.json 2>/dev/null || true
+systemctl restart xray 2>/dev/null || true

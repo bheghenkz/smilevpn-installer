@@ -1,0 +1,37 @@
+#!/bin/bash
+
+DB="/etc/zivpn/users.db"
+TMP="/tmp/zivpn.tmp"
+
+now=$(date +%s)
+
+touch $TMP
+
+while IFS=: read -r user exp; do
+    if [ "$exp" -gt "$now" ]; then
+        echo "${user}:${exp}" >> $TMP
+    else
+        sed -i "/^${user}:/d" /etc/zivpn/user-limit.db 2>/dev/null
+
+python3 - <<PY
+import json
+path="/etc/zivpn/config.json"
+user="$user"
+
+with open(path) as f:
+    data=json.load(f)
+
+cfg=data.get("auth",{}).get("config",[])
+data["auth"]["config"]=[x for x in cfg if x != user]
+
+with open(path,"w") as f:
+    json.dump(data,f,indent=2)
+PY
+
+        echo "Deleted expired user: $user"
+    fi
+done < $DB
+
+mv $TMP $DB
+
+systemctl restart zivpn

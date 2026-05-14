@@ -1,0 +1,43 @@
+#!/bin/bash
+DB="/etc/zivpn/users.db"
+LIMITDB="/etc/zivpn/user-limit.db"
+CONFIG="/etc/zivpn/config.json"
+
+read -p "Username : " user
+read -p "Expired (days): " days
+read -p "Limit IP : " iplimit
+
+pass="$user"
+exp=$(date -d "$days days" +"%s")
+DOMAIN=$(cat /etc/xray/domain 2>/dev/null || hostname)
+
+sed -i "/^${user}:/d" "$DB" 2>/dev/null
+sed -i "/^${user}:/d" "$LIMITDB" 2>/dev/null
+echo "${user}:${exp}" >> "$DB"
+echo "${user}:${iplimit}" >> "$LIMITDB"
+
+python3 - <<PY
+import json
+path="$CONFIG"
+user="$user"
+with open(path) as f:
+    data=json.load(f)
+cfg=data.setdefault("auth",{}).setdefault("config",[])
+if user not in cfg:
+    cfg.append(user)
+with open(path,"w") as f:
+    json.dump(data,f,indent=2)
+PY
+
+systemctl restart zivpn
+
+clear
+echo "━━━━━━━━━━━━━━━━━━━"
+echo "   ZIVPN ACCOUNT"
+echo "━━━━━━━━━━━━━━━━━━━"
+echo "Username : $user"
+echo "Password : $pass"
+echo "Domain   : $DOMAIN"
+echo "Limit IP : $iplimit"
+echo "Expired  : $(date -d "$days days" +"%d %b %Y")"
+echo "━━━━━━━━━━━━━━━━━━━"

@@ -1,0 +1,35 @@
+#!/bin/bash
+DB="/etc/zivpn/users.db"
+LIMITDB="/etc/zivpn/user-limit.db"
+CONFIG="/etc/zivpn/config.json"
+
+read -p "Username : " user
+
+if ! grep -q "^${user}:" "$DB"; then
+    echo "User not found"
+    exit 1
+fi
+
+sed -i "/^${user}:/d" "$DB"
+sed -i "/^${user}:/d" "$LIMITDB" 2>/dev/null
+
+python3 - <<PY
+import json
+path="$CONFIG"
+user="$user"
+with open(path) as f:
+    data=json.load(f)
+cfg=data.get("auth",{}).get("config",[])
+data["auth"]["config"]=[x for x in cfg if x != user]
+with open(path,"w") as f:
+    json.dump(data,f,indent=2)
+PY
+
+systemctl restart zivpn
+
+clear
+echo "━━━━━━━━━━━━━━━━━━━"
+echo "  ZIVPN DELETED"
+echo "━━━━━━━━━━━━━━━━━━━"
+echo "Username : $user"
+echo "━━━━━━━━━━━━━━━━━━━"

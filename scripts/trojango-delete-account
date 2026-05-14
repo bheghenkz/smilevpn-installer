@@ -1,0 +1,32 @@
+#!/bin/bash
+set -e
+
+USERNAME="$1"
+
+if [ -z "$USERNAME" ]; then
+    echo "Usage: trojango-delete-account USERNAME"
+    exit 1
+fi
+
+CONFIG="/etc/trojan-go/config.json"
+
+python3 <<PY
+import json
+from pathlib import Path
+
+p = Path("$CONFIG")
+data = json.loads(p.read_text())
+
+if "password" in data and isinstance(data["password"], list):
+    data["password"] = [x for x in data["password"] if x != "$USERNAME"]
+
+p.write_text(json.dumps(data, indent=2))
+PY
+
+rm -f "/etc/trojan-go/akun/log-create-${USERNAME}.log"
+rm -f "/var/www/html/trojango-${USERNAME}.txt"
+rm -f "/etc/limit-state/trojango-${USERNAME}."*
+
+systemctl restart trojan-go >/dev/null 2>&1 || true
+
+echo "OK: trojan-go deleted ${USERNAME}"

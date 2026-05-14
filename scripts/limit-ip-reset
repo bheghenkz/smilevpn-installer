@@ -1,0 +1,45 @@
+#!/bin/bash
+set -e
+
+SERVICE="$1"
+USER="$2"
+
+if [ -z "$SERVICE" ] || [ -z "$USER" ]; then
+  echo "Usage: limit-ip-reset SERVICE USERNAME"
+  echo "Example: limit-ip-reset trojan jzfdgu"
+  exit 1
+fi
+
+case "$SERVICE" in
+  trojan|vmess|vless|shadowsocks|vless-reality|trojango|ssh)
+    ;;
+  *)
+    echo "ERROR: unsupported service: $SERVICE"
+    echo "Allowed: trojan vmess vless shadowsocks vless-reality trojango ssh"
+    exit 1
+    ;;
+esac
+
+STATE_DIR="/etc/limit-state"
+
+rm -f "$STATE_DIR/$SERVICE-$USER.strike"
+rm -f "$STATE_DIR/$SERVICE-$USER.blocked_until"
+rm -f "$STATE_DIR/$SERVICE-$USER.suspended"
+rm -f "$STATE_DIR/$SERVICE-$USER.ips"
+rm -f "$STATE_DIR/$SERVICE-$USER.notified"
+rm -f "$STATE_DIR/$SERVICE-$USER.config.backup"
+
+if [ "$SERVICE" = "ssh" ]; then
+  usermod -U "$USER" >/dev/null 2>&1 || true
+  pkill -u "$USER" >/dev/null 2>&1 || true
+else
+  if command -v unblock-xray-user >/dev/null 2>&1; then
+    unblock-xray-user "$SERVICE" "$USER" >/dev/null 2>&1 || true
+  elif [ -x /usr/local/sbin/smilevpn/unblock-xray-user ]; then
+    /usr/local/sbin/smilevpn/unblock-xray-user "$SERVICE" "$USER" >/dev/null 2>&1 || true
+  fi
+
+  systemctl restart xray >/dev/null 2>&1 || true
+fi
+
+echo "OK: limit IP reset for $SERVICE/$USER"
