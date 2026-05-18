@@ -173,11 +173,11 @@ for file in "$SSH_DIR"/*IP; do
     fi
 
     if [ "$BLOCK_UNTIL" != "0" ] && [ "$BLOCK_UNTIL" -le "$NOW" ] 2>/dev/null; then
-        rm -f "$BLOCK_FILE" "$SUSPENDED_FILE"
-        echo 0 > "$STRIKE_FILE"
+        rm -f "$BLOCK_FILE" "$SUSPENDED_FILE" "$STRIKE_FILE" "$IPS_FILE"
         usermod -U "$USERNAME" >/dev/null 2>&1 || true
         passwd -u "$USERNAME" >/dev/null 2>&1 || true
         pkill -u "$USERNAME" >/dev/null 2>&1 || true
+        systemctl restart udp-custom >/dev/null 2>&1 || true
         echo "$(date '+%F %T') SSH UNBLOCK $USERNAME" >> "$LOG_FILE"
         send_log "$USERNAME" "$LIMIT" 0 "unknown" 0 "unblock" ""
     fi
