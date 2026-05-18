@@ -37,6 +37,7 @@ while read -r tag user exp_date exp_time pass rest; do
             pkill -u "$user" >/dev/null 2>&1 || true
         fi
         rm -f "/var/www/html/ssh-$user.txt" "/etc/xray/sshx/${user}IP" "/etc/xray/sshx/${user}login"
+        rm -f /etc/limit-state/ssh-${user}.*
     fi
 done < /etc/xray/ssh
 
@@ -63,6 +64,7 @@ expire_xray() {
             sed -i "/^#$prefixg $user /,/^,{/d" /etc/xray/config.json
             sed -i "/^#$prefix $user /,/^,{/d" /etc/xray/config.json
             rm -f "/var/www/html/${html}-${user}.txt" "$dir/${user}IP" "$dir/${user}login"
+            rm -f /etc/smilevpn-limit/${html}-${user}.* /etc/smilevpn-limit/${prefix}-${user}.* /etc/smilevpn-limit/${prefixg}-${user}.*
         fi
     done
 }
@@ -89,6 +91,7 @@ if [ -d /etc/trojan-go/akun ]; then
             sed -i "/trojango\/${user}/d" /etc/trojan-go/config.json
             sed -i "/${user}/d" /etc/trojan-go/config.json
             rm -f "/var/www/html/trojango-${user}.txt"
+            rm -f /etc/smilevpn-limit/trojango-${user}.* /etc/smilevpn-limit/trojan-go-${user}.*
             rm -f "$file"
             changed=1
         fi

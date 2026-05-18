@@ -103,18 +103,26 @@ for line in ss.splitlines():
             ips.add(rip)
 
 # UDP Custom / HTTP Custom / HTTP Mini
+# Only count recent udp-custom auth logs to avoid re-block after unblock.
 syslog = subprocess.getoutput("tail -n 3000 /var/log/syslog 2>/dev/null")
+now_ts = int(subprocess.getoutput("date +%s") or "0")
+year = subprocess.getoutput("date +%Y").strip() or "1970"
 
 for line in syslog.splitlines():
     if "udp-custom" not in line:
         continue
 
-    m = re.search(r"\[src:([0-9.]+):\d+\]\s+\[user:([^\]]+)\]", line)
+    m = re.search(r"^([A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}).*\[src:([0-9.]+):\d+\]\s+\[user:([^\]]+)\]", line)
     if not m:
         continue
 
-    rip = m.group(1)
-    ruser = m.group(2)
+    ts_text = f"{year} {m.group(1)}"
+    line_ts = int(subprocess.getoutput(f"date -d '{ts_text}' +%s 2>/dev/null") or "0")
+    if line_ts <= 0 or now_ts - line_ts > 120:
+        continue
+
+    rip = m.group(2)
+    ruser = m.group(3)
 
     if ruser == user:
         ips.add(rip)
