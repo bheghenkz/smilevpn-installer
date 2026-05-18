@@ -1,8 +1,8 @@
 #!/bin/bash
 
-LOCK="/tmp/smilevpn-ssh-limit-ip-check.lock"
-exec 9>"$LOCK"
+exec 9>/run/smilevpn-ssh-limit.lock
 flock -n 9 || exit 0
+
 
 STATE_DIR="/etc/limit-state"
 SSH_DIR="/etc/xray/sshx"
@@ -33,19 +33,33 @@ send_log() {
         BLOCKED_UNTIL_SEND="$(date -d "@$BLOCKED_UNTIL_SEND" '+%F %T' 2>/dev/null || echo "$BLOCKED_UNTIL_SEND")"
     fi
 
-    curl -s -m 5 -X POST "$PANEL_URL" \
-        -H "Authorization: Bearer $API_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d "{
-            \"username\": \"$1\",
-            \"service\": \"ssh\",
-            \"limit\": $2,
-            \"count\": $3,
-            \"ips\": \"$4\",
-            \"strike\": $5,
-            \"action\": \"$6\",
-            \"blocked_until\": \"$BLOCKED_UNTIL_SEND\"
-        }" >/dev/null 2>&1 &
+    PAYLOAD=$(cat <<JSON
+{
+  "username": "$1",
+  "service": "ssh",
+  "limit": $2,
+  "count": $3,
+  "ips": "$4",
+  "strike": $5,
+  "action": "$6",
+  "blocked_until": "$BLOCKED_UNTIL_SEND"
+}
+JSON
+)
+
+    for TRY in 1 2 3; do
+        HTTP_CODE=$(curl -sS -m 8 -o /tmp/smilevpn-panel-response.txt -w "%{http_code}" \
+            -X POST "$PANEL_URL" \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data-binary "$PAYLOAD" 2>>/var/log/smilevpn-ssh-limit-panel.log)
+
+        RESP="$(cat /tmp/smilevpn-panel-response.txt 2>/dev/null)"
+        echo "$(date '+%F %T') API try=$TRY action=$6 user=$1 code=$HTTP_CODE resp=$RESP" >> /var/log/smilevpn-ssh-limit-panel.log
+
+        [ "$HTTP_CODE" = "200" ] && break
+        sleep 2
+    done
 }
 
 
@@ -104,7 +118,7 @@ for line in ss.splitlines():
 
 # UDP Custom / HTTP Custom / HTTP Mini
 # Only count recent udp-custom auth logs to avoid re-block after unblock.
-syslog = subprocess.getoutput("tail -n 3000 /var/log/syslog 2>/dev/null")
+syslog = subprocess.getoutput("journalctl -u udp-custom -n 300 --no-pager 2>/dev/null")
 now_ts = int(subprocess.getoutput("date +%s") or "0")
 year = subprocess.getoutput("date +%Y").strip() or "1970"
 
@@ -112,17 +126,14 @@ for line in syslog.splitlines():
     if "udp-custom" not in line:
         continue
 
-    m = re.search(r"^([A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}).*\[src:([0-9.]+):\d+\]\s+\[user:([^\]]+)\]", line)
+    m = re.search(r"\[src:([0-9.]+):\d+\].*\[user:([^\]]+)\]", line)
     if not m:
         continue
 
-    ts_text = f"{year} {m.group(1)}"
-    line_ts = int(subprocess.getoutput(f"date -d '{ts_text}' +%s 2>/dev/null") or "0")
-    if line_ts <= 0 or now_ts - line_ts > 120:
-        continue
+    line_ts = now_ts
 
-    rip = m.group(2)
-    ruser = m.group(3)
+    rip = m.group(1)
+    ruser = m.group(2)
 
     if ruser == user:
         ips.add(rip)
@@ -188,11 +199,13 @@ for file in "$SSH_DIR"/*IP; do
             usermod -L "$USERNAME" >/dev/null 2>&1 || true
             pkill -KILL -u "$USERNAME" sshd >/dev/null 2>&1 || true
             pkill -KILL -u "$USERNAME" dropbear >/dev/null 2>&1 || true
+            systemctl restart udp-custom >/dev/null 2>&1 || true
             echo "$(date '+%F %T') SSH BLOCK $USERNAME IP=$COUNT LIMIT=$LIMIT IPS=$IPS_COMMA" >> "$LOG_FILE"
             send_log "$USERNAME" "$LIMIT" "$COUNT" "$IPS_COMMA" "$STRIKE" "block" "$BLOCK_UNTIL"
         else
             pkill -KILL -u "$USERNAME" sshd >/dev/null 2>&1 || true
             pkill -KILL -u "$USERNAME" dropbear >/dev/null 2>&1 || true
+            systemctl restart udp-custom >/dev/null 2>&1 || true
             echo "$(date '+%F %T') SSH STRIKE $USERNAME STRIKE=$STRIKE IP=$COUNT LIMIT=$LIMIT IPS=$IPS_COMMA" >> "$LOG_FILE"
             send_log "$USERNAME" "$LIMIT" "$COUNT" "$IPS_COMMA" "$STRIKE" "strike" ""
         fi
