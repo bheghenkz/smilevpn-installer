@@ -22,6 +22,17 @@ send_log() {
     [ -z "$PANEL_URL" ] && return
     [ -z "$API_TOKEN" ] && return
 
+    PANEL_URL="${PANEL_URL%/}"
+    case "$PANEL_URL" in
+        */api/security/ip-limit) ;;
+        *) PANEL_URL="$PANEL_URL/api/security/ip-limit" ;;
+    esac
+
+    BLOCKED_UNTIL_SEND="$7"
+    if echo "$BLOCKED_UNTIL_SEND" | grep -Eq '^[0-9]+$'; then
+        BLOCKED_UNTIL_SEND="$(date -d "@$BLOCKED_UNTIL_SEND" '+%F %T' 2>/dev/null || echo "$BLOCKED_UNTIL_SEND")"
+    fi
+
     curl -s -m 5 -X POST "$PANEL_URL" \
         -H "Authorization: Bearer $API_TOKEN" \
         -H "Content-Type: application/json" \
@@ -33,9 +44,10 @@ send_log() {
             \"ips\": \"$4\",
             \"strike\": $5,
             \"action\": \"$6\",
-            \"blocked_until\": \"$7\"
+            \"blocked_until\": \"$BLOCKED_UNTIL_SEND\"
         }" >/dev/null 2>&1 &
 }
+
 
 get_user_ips() {
     user="$1"
@@ -145,6 +157,8 @@ for file in "$SSH_DIR"/*IP; do
         rm -f "$BLOCK_FILE" "$SUSPENDED_FILE"
         echo 0 > "$STRIKE_FILE"
         usermod -U "$USERNAME" >/dev/null 2>&1 || true
+        passwd -u "$USERNAME" >/dev/null 2>&1 || true
+        pkill -u "$USERNAME" >/dev/null 2>&1 || true
         echo "$(date '+%F %T') SSH UNBLOCK $USERNAME" >> "$LOG_FILE"
         send_log "$USERNAME" "$LIMIT" 0 "unknown" 0 "unblock" ""
     fi
