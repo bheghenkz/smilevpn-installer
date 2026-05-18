@@ -90,6 +90,23 @@ for line in ss.splitlines():
         if owner == user or re.search(r"sshd:\s+" + re.escape(user) + r"(@|\s)", args):
             ips.add(rip)
 
+# UDP Custom / HTTP Custom / HTTP Mini
+syslog = subprocess.getoutput("tail -n 3000 /var/log/syslog 2>/dev/null")
+
+for line in syslog.splitlines():
+    if "udp-custom" not in line:
+        continue
+
+    m = re.search(r"\[src:([0-9.]+):\d+\]\s+\[user:([^\]]+)\]", line)
+    if not m:
+        continue
+
+    rip = m.group(1)
+    ruser = m.group(2)
+
+    if ruser == user:
+        ips.add(rip)
+
 print("\n".join(sorted(ips)))
 PYX
 }
