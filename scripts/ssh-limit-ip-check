@@ -1,14 +1,41 @@
 #!/bin/bash
 
+LOCK="/tmp/smilevpn-ssh-limit-ip-check.lock"
+exec 9>"$LOCK"
+flock -n 9 || exit 0
+
 STATE_DIR="/etc/limit-state"
 SSH_DIR="/etc/xray/sshx"
 LOG_FILE="/var/log/ssh-limit.log"
+PANEL_URL=$(cat /etc/smilevpn-panel-url 2>/dev/null)
+API_TOKEN=$(cat /etc/smilevpn-api-token 2>/dev/null)
+
 NOW=$(date +%s)
 MAX_STRIKE=3
 BLOCK_SECONDS=600
 
 mkdir -p "$STATE_DIR"
+
 [ -d "$SSH_DIR" ] || exit 0
+
+send_log() {
+    [ -z "$PANEL_URL" ] && return
+    [ -z "$API_TOKEN" ] && return
+
+    curl -s -m 5 -X POST "$PANEL_URL" \
+        -H "Authorization: Bearer $API_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "{
+            \"username\": \"$1\",
+            \"service\": \"ssh\",
+            \"limit\": $2,
+            \"count\": $3,
+            \"ips\": \"$4\",
+            \"strike\": $5,
+            \"action\": \"$6\",
+            \"blocked_until\": \"$7\"
+        }" >/dev/null 2>&1 &
+}
 
 get_user_ips() {
     user="$1"
@@ -19,34 +46,49 @@ import subprocess
 import sys
 
 user = sys.argv[1]
-out = subprocess.getoutput("ss -tnp state established")
 ips = set()
 
-for line in out.splitlines():
-    if "sshd" not in line:
+ss = subprocess.getoutput("ss -tnp state established")
+auth = subprocess.getoutput("tail -n 5000 /var/log/auth.log 2>/dev/null")
+
+login_ips = set()
+for line in auth.splitlines():
+    m = re.search(r"Password auth succeeded for '([^']+)' from ([0-9.]+):", line)
+    if m and m.group(1) == user:
+        login_ips.add(m.group(2))
+
+for line in ss.splitlines():
+    if "sshd" not in line and "dropbear" not in line:
         continue
 
     parts = line.split()
-    if len(parts) < 5:
+    if len(parts) < 4:
         continue
 
     local = parts[2]
     remote = parts[3]
 
-    if not re.search(r":(22|2222|2223)$", local):
+    if not re.search(r":(22|2222|2223|109|143)$", local):
+        continue
+
+    rip = re.sub(r"^\[|\]$", "", remote)
+    rip = re.sub(r":\d+$", "", rip)
+
+    if not re.match(r"^\d+\.\d+\.\d+\.\d+$", rip):
+        continue
+
+    if "dropbear" in line:
+        if rip in login_ips:
+            ips.add(rip)
         continue
 
     pids = re.findall(r"pid=(\d+)", line)
-    if not pids:
-        continue
-
     for pid in pids:
+        args = subprocess.getoutput(f"ps -o args= -p {pid}").strip()
         owner = subprocess.getoutput(f"ps -o user= -p {pid}").strip()
-        if owner == user:
-            remote = re.sub(r"^\[|\]$", "", remote)
-            remote = re.sub(r":\d+$", "", remote)
-            if re.match(r"^\d+\.\d+\.\d+\.\d+$", remote):
-                ips.add(remote)
+
+        if owner == user or re.search(r"sshd:\s+" + re.escape(user) + r"(@|\s)", args):
+            ips.add(rip)
 
 print("\n".join(sorted(ips)))
 PYX
@@ -78,6 +120,7 @@ for file in "$SSH_DIR"/*IP; do
     if [ "$BLOCK_UNTIL" -gt "$NOW" ] 2>/dev/null; then
         usermod -L "$USERNAME" >/dev/null 2>&1 || true
         pkill -KILL -u "$USERNAME" sshd >/dev/null 2>&1 || true
+        pkill -KILL -u "$USERNAME" dropbear >/dev/null 2>&1 || true
         continue
     fi
 
@@ -86,6 +129,7 @@ for file in "$SSH_DIR"/*IP; do
         echo 0 > "$STRIKE_FILE"
         usermod -U "$USERNAME" >/dev/null 2>&1 || true
         echo "$(date '+%F %T') SSH UNBLOCK $USERNAME" >> "$LOG_FILE"
+        send_log "$USERNAME" "$LIMIT" 0 "unknown" 0 "unblock" ""
     fi
 
     IPS="$(get_user_ips "$USERNAME")"
@@ -104,10 +148,14 @@ for file in "$SSH_DIR"/*IP; do
             echo "$NOW" > "$SUSPENDED_FILE"
             usermod -L "$USERNAME" >/dev/null 2>&1 || true
             pkill -KILL -u "$USERNAME" sshd >/dev/null 2>&1 || true
+            pkill -KILL -u "$USERNAME" dropbear >/dev/null 2>&1 || true
             echo "$(date '+%F %T') SSH BLOCK $USERNAME IP=$COUNT LIMIT=$LIMIT IPS=$IPS_COMMA" >> "$LOG_FILE"
+            send_log "$USERNAME" "$LIMIT" "$COUNT" "$IPS_COMMA" "$STRIKE" "block" "$BLOCK_UNTIL"
         else
             pkill -KILL -u "$USERNAME" sshd >/dev/null 2>&1 || true
+            pkill -KILL -u "$USERNAME" dropbear >/dev/null 2>&1 || true
             echo "$(date '+%F %T') SSH STRIKE $USERNAME STRIKE=$STRIKE IP=$COUNT LIMIT=$LIMIT IPS=$IPS_COMMA" >> "$LOG_FILE"
+            send_log "$USERNAME" "$LIMIT" "$COUNT" "$IPS_COMMA" "$STRIKE" "strike" ""
         fi
     fi
 done

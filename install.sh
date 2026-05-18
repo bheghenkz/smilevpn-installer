@@ -395,10 +395,22 @@ SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 */5 * * * * root /usr/local/sbin/smilevpn/xp >/dev/null 2>&1
 * * * * * root /usr/local/sbin/smilevpn/limit-ip-check >/dev/null 2>&1
-* * * * * root /usr/local/sbin/smilevpn/ssh-limit-ip-check >/dev/null 2>&1
 * * * * * root /usr/local/sbin/smilevpn/zivpn-expired-check >/dev/null 2>&1
 CRON
 chmod 644 /etc/cron.d/smilevpn
+
+cat > /etc/cron.d/smilevpn-ssh-fast <<'CRON'
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+* * * * * root /usr/local/sbin/smilevpn/ssh-limit-ip-check >/dev/null 2>&1
+* * * * * root sleep 10; /usr/local/sbin/smilevpn/ssh-limit-ip-check >/dev/null 2>&1
+* * * * * root sleep 20; /usr/local/sbin/smilevpn/ssh-limit-ip-check >/dev/null 2>&1
+* * * * * root sleep 30; /usr/local/sbin/smilevpn/ssh-limit-ip-check >/dev/null 2>&1
+* * * * * root sleep 40; /usr/local/sbin/smilevpn/ssh-limit-ip-check >/dev/null 2>&1
+* * * * * root sleep 50; /usr/local/sbin/smilevpn/ssh-limit-ip-check >/dev/null 2>&1
+CRON
+chmod 644 /etc/cron.d/smilevpn-ssh-fast
 systemctl enable cron
 systemctl restart cron
 echo "✅ Cron jobs installed"
