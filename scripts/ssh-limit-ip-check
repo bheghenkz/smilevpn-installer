@@ -161,6 +161,7 @@ for file in "$SSH_DIR"/*IP; do
     BLOCK_FILE="$STATE_DIR/ssh-$USERNAME.blocked_until"
     IPS_FILE="$STATE_DIR/ssh-$USERNAME.ips"
     SUSPENDED_FILE="$STATE_DIR/ssh-$USERNAME.suspended"
+    COOLDOWN_FILE="$STATE_DIR/ssh-$USERNAME.cooldown"
 
     STRIKE="$(cat "$STRIKE_FILE" 2>/dev/null || echo 0)"
     BLOCK_UNTIL="$(cat "$BLOCK_FILE" 2>/dev/null || echo 0)"
@@ -174,12 +175,23 @@ for file in "$SSH_DIR"/*IP; do
 
     if [ "$BLOCK_UNTIL" != "0" ] && [ "$BLOCK_UNTIL" -le "$NOW" ] 2>/dev/null; then
         rm -f "$BLOCK_FILE" "$SUSPENDED_FILE" "$STRIKE_FILE" "$IPS_FILE"
+        echo $((NOW + 30)) > "$COOLDOWN_FILE"
         usermod -U "$USERNAME" >/dev/null 2>&1 || true
         passwd -u "$USERNAME" >/dev/null 2>&1 || true
         pkill -u "$USERNAME" >/dev/null 2>&1 || true
         systemctl restart udp-custom >/dev/null 2>&1 || true
         echo "$(date '+%F %T') SSH UNBLOCK $USERNAME" >> "$LOG_FILE"
         send_log "$USERNAME" "$LIMIT" 0 "unknown" 0 "unblock" ""
+        continue
+    fi
+
+    if [ -f "$COOLDOWN_FILE" ]; then
+        COOLDOWN_UNTIL="$(cat "$COOLDOWN_FILE" 2>/dev/null || echo 0)"
+        if [ "$COOLDOWN_UNTIL" -gt "$NOW" ]; then
+            echo "unknown" > "$IPS_FILE"
+            continue
+        fi
+        rm -f "$COOLDOWN_FILE"
     fi
 
     IPS="$(get_user_ips "$USERNAME")"
@@ -188,7 +200,11 @@ for file in "$SSH_DIR"/*IP; do
     [ -z "$IPS_COMMA" ] && IPS_COMMA="unknown"
     echo "$IPS_COMMA" > "$IPS_FILE"
 
-    if [ "$COUNT" -gt "$LIMIT" ]; then
+    # UDP Custom mobile clients can briefly create multiple transient source IPs.
+    # Allow small reconnect tolerance before triggering strike/block.
+    ALLOW_LIMIT=$((LIMIT + 2))
+
+    if [ "$COUNT" -gt "$ALLOW_LIMIT" ]; then
         STRIKE=$((STRIKE + 1))
         echo "$STRIKE" > "$STRIKE_FILE"
 
@@ -205,7 +221,6 @@ for file in "$SSH_DIR"/*IP; do
         else
             pkill -KILL -u "$USERNAME" sshd >/dev/null 2>&1 || true
             pkill -KILL -u "$USERNAME" dropbear >/dev/null 2>&1 || true
-            systemctl restart udp-custom >/dev/null 2>&1 || true
             echo "$(date '+%F %T') SSH STRIKE $USERNAME STRIKE=$STRIKE IP=$COUNT LIMIT=$LIMIT IPS=$IPS_COMMA" >> "$LOG_FILE"
             send_log "$USERNAME" "$LIMIT" "$COUNT" "$IPS_COMMA" "$STRIKE" "strike" ""
         fi
