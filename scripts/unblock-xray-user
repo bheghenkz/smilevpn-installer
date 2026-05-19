@@ -5,7 +5,7 @@ SERVICE="$1"
 USER="$2"
 CONF="/etc/xray/config.json"
 RCONF="/usr/local/etc/xray/config.json"
-STATE="/etc/smilevpn-limit"
+STATE="/etc/limit-state"
 
 [ -n "$SERVICE" ] && [ -n "$USER" ] || exit 1
 
