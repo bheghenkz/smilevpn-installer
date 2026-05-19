@@ -1,0 +1,20 @@
+#!/bin/bash
+set -e
+USER="$1"
+CONF="/etc/zivpn/config.json"
+STATE="/etc/limit-state"
+mkdir -p "$STATE"
+[ -n "$USER" ] || exit 1
+BACKUP="$STATE/zivpn-$USER.config.backup"
+[ -f "$BACKUP" ] || cp "$CONF" "$BACKUP"
+
+python3 - "$USER" "$CONF" <<'PY'
+import json, sys
+user, path = sys.argv[1], sys.argv[2]
+data = json.load(open(path))
+cfg = data.get("auth", {}).get("config", [])
+data["auth"]["config"] = [x for x in cfg if x != user]
+open(path, "w").write(json.dumps(data, indent=2) + "\n")
+PY
+
+systemctl restart zivpn >/dev/null 2>&1 || true
