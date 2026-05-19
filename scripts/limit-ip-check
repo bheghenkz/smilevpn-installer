@@ -51,6 +51,8 @@ count_ips() {
         vless) path="/vless/$user" ;;
         shadowsocks) path="/ss-ws/$user" ;;
         vless-reality) path="" ;;
+                trojango) path="JOURNAL_TROJANGO" ;;
+trojango) path="JOURNAL_TROJANGO" ;;
         *) path="" ;;
     esac
 
@@ -101,6 +103,16 @@ def xray_recent(line):
         return t >= cutoff
     except Exception:
         return False
+
+# TrojanGo: use recent systemd journal
+if path == "JOURNAL_TROJANGO":
+    out = subprocess.getoutput("journalctl -u trojan-go --since '90 seconds ago' --no-pager 2>/dev/null")
+    for line in out.splitlines():
+        m = re.search(r"from ([0-9]+(?:\.[0-9]+){3}):", line)
+        if m and good(m.group(1)):
+            ips.add(m.group(1))
+    print("\n".join(sorted(ips)))
+    sys.exit(0)
 
 # WS/gRPC behind Nginx: use recent Nginx only, do not merge old Xray fallback
 if path:
@@ -220,6 +232,8 @@ check_xray "/etc/vmess" "vmess"
 check_xray "/etc/vless" "vless"
 check_xray "/etc/shadowsocks" "shadowsocks"
 check_xray "/etc/vlessreality" "vless-reality"
+check_xray "/etc/trojango" "trojango"
+
 
 # Trojango and ZiVPN intentionally skipped until real user-IP parser is verified.
 exit 0
