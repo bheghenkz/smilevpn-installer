@@ -1,235 +1,202 @@
 #!/bin/bash
+set -euo pipefail
 
-SMILEVPN_LIMIT_LOCK="/tmp/smilevpn-limit-ip-check.lock"
-exec 9>"$SMILEVPN_LIMIT_LOCK"
+LOCK="/run/smilevpn-limit-ip-check.lock"
+exec 9>"$LOCK"
 flock -n 9 || exit 0
 
-
 LOG="/var/log/xray/access.log"
-STATE_DIR="/etc/smilevpn-limit"
-PANEL_URL=$(cat /etc/smilevpn-panel-url 2>/dev/null)
-API_TOKEN=$(cat /etc/smilevpn-api-token 2>/dev/null)
+STATE_DIR="/etc/limit-state"
+CONF="/etc/xray/config.json"
+PANEL_URL="$(cat /etc/smilevpn-panel-url 2>/dev/null || true)"
+API_TOKEN="$(cat /etc/smilevpn-api-token 2>/dev/null || true)"
+SERVER_IP4="$(curl -s4 --max-time 3 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')"
+
 mkdir -p "$STATE_DIR"
 
 send_log() {
-    [ -z "$PANEL_URL" ] && return
-    [ -z "$API_TOKEN" ] && return
+    [ -z "$PANEL_URL" ] && return 0
+    [ -z "$API_TOKEN" ] && return 0
+    PANEL_URL="${PANEL_URL%/}"
+    case "$PANEL_URL" in */api/security/ip-limit) ;; *) PANEL_URL="$PANEL_URL/api/security/ip-limit" ;; esac
 
-    curl -s -X POST "$PANEL_URL/api/security/ip-limit" \
+    curl -sS -m 6 -X POST "$PANEL_URL" \
         -H "Authorization: Bearer $API_TOKEN" \
         -H "Content-Type: application/json" \
-        -d "{
-            \"username\": \"$1\",
-            \"service\": \"$2\",
-            \"limit\": $3,
-            \"count\": $4,
-            \"ips\": \"$5\",
-            \"strike\": $6,
-            \"action\": \"$7\",
-            \"blocked_until\": \"$8\"
-        }" >>/var/log/smilevpn-iplimit-panel.log 2>&1 &
+        --data-binary "{
+          \"username\":\"$1\",
+          \"service\":\"$2\",
+          \"limit\":$3,
+          \"count\":$4,
+          \"ips\":\"$5\",
+          \"strike\":$6,
+          \"action\":\"$7\",
+          \"blocked_until\":\"$8\"
+        }" >>/var/log/smilevpn-iplimit-panel.log 2>&1 || true
 }
 
-now_ts() {
-    date +%s
+is_user_exists() {
+    local user="$1"
+    grep -q "\"email\": \"$user\"" "$CONF" 2>/dev/null
 }
 
-to_ts() {
-    date -d "$1" +%s 2>/dev/null || echo 0
+count_ips() {
+    local user="$1"
+    local service="$2"
+    local path=""
+
+    case "$service" in
+        trojan) path="/trojan-ws/$user" ;;
+        vmess) path="/vmess/$user" ;;
+        vless) path="/vless/$user" ;;
+        shadowsocks) path="/ss-ws/$user" ;;
+        vless-reality) path="" ;;
+        *) path="" ;;
+    esac
+
+    python3 - "$user" "$path" "$SERVER_IP4" "$LOG" <<'PY'
+import ipaddress, re, sys, subprocess
+from datetime import datetime, timedelta
+
+user, path, server_ip, xray_log = sys.argv[1:5]
+ips = set()
+
+def good(ip):
+    try:
+        obj = ipaddress.ip_address(ip)
+    except Exception:
+        return False
+    if obj.version != 4:
+        return False
+    if ip == server_ip:
+        return False
+    if obj.is_private or obj.is_loopback or obj.is_link_local or obj.is_multicast or obj.is_unspecified:
+        return False
+    # Cloudflare common IPv4 ranges
+    cf = [
+        "173.245.48.0/20","103.21.244.0/22","103.22.200.0/22","103.31.4.0/22",
+        "141.101.64.0/18","108.162.192.0/18","190.93.240.0/20","188.114.96.0/20",
+        "197.234.240.0/22","198.41.128.0/17","162.158.0.0/15","104.16.0.0/13",
+        "104.24.0.0/14","172.64.0.0/13","131.0.72.0/22",
+    ]
+    ipobj = ipaddress.ip_address(ip)
+    return not any(ipobj in ipaddress.ip_network(n) for n in cf)
+
+# recent nginx logs only
+if path:
+    try:
+        out = subprocess.getoutput("tail -n 1500 /var/log/nginx/access.log 2>/dev/null")
+        for line in out.splitlines():
+            if path not in line:
+                continue
+            parts = line.split()
+            if parts:
+                ip = parts[0]
+                if good(ip):
+                    ips.add(ip)
+    except Exception:
+        pass
+
+# recent xray logs only
+try:
+    out = subprocess.getoutput(f"tail -n 1200 {xray_log} 2>/dev/null")
+    for line in out.splitlines():
+        if f"email: {user}" not in line or " accepted " not in line:
+            continue
+        m = re.search(r"from (?:tcp:)?([0-9]+(?:\.[0-9]+){3}):", line)
+        if not m:
+            continue
+        ip = m.group(1)
+        if good(ip):
+            ips.add(ip)
+except Exception:
+    pass
+
+print("\n".join(sorted(ips)))
+PY
 }
 
 check_xray() {
-    DIR="$1"
-    SERVICE="$2"
+    local dir="$1"
+    local service="$2"
 
-    [ -d "$DIR" ] || return
-    [ -f "$LOG" ] || return
+    [ -d "$dir" ] || return 0
 
-    for f in "$DIR"/*IP; do
+    for f in "$dir"/*IP; do
         [ -f "$f" ] || continue
 
-        USER=$(basename "$f" IP)
-        LIMIT=$(cat "$f" | tr -dc '0-9')
+        local user limit strike_file block_file ips_file cooldown_file now block_until
+        user="$(basename "$f" IP)"
+        limit="$(tr -dc '0-9' < "$f")"
+        [ -z "$limit" ] && limit=0
+        [ "$limit" = "0" ] && continue
 
-        [ -z "$LIMIT" ] && LIMIT=0
-        [ "$LIMIT" = "0" ] && continue
-
-        # AUTO CLEAN EXPIRED/DELETED XRAY USER STATE
-        # If user no longer exists in Xray config, remove old strike/block/backup state.
-        if [ "$SERVICE" != "ssh" ] && [ -f /etc/xray/config.json ]; then
-            if ! grep -q "\"email\": \"$USER\"" /etc/xray/config.json; then
-                rm -f "$STATE_DIR/$SERVICE-$USER.strike" \
-                      "$STATE_DIR/$SERVICE-$USER.blocked_until" \
-                      "$STATE_DIR/$SERVICE-$USER.suspended" \
-                      "$STATE_DIR/$SERVICE-$USER.config.backup"
-                echo "AUTO CLEAN: $SERVICE $USER not found in Xray config, old limit state removed"
-                continue
-            fi
-        fi
-
-        STRIKE_FILE="$STATE_DIR/$SERVICE-$USER.strike"
-        BLOCK_FILE="$STATE_DIR/$SERVICE-$USER.blocked_until"
-        SUSPEND_FILE="$STATE_DIR/$SERVICE-$USER.suspended"
-
-        # 🔥 AUTO UNSUSPEND
-if [ -f "$SUSPEND_FILE" ]; then
-    SUSPEND_AT=$(cat "$SUSPEND_FILE")
-    SUSPEND_TS=$(to_ts "$SUSPEND_AT")
-    NOW_TS=$(now_ts)
-
-    if [ $((NOW_TS - SUSPEND_TS)) -ge 86400 ]; then
-        echo "UNSUSPEND: $SERVICE $USER (24h passed)"
-        rm -f "$SUSPEND_FILE"
-        echo "2" > "$STRIKE_FILE"
-        cp /etc/xray/config.json /usr/local/etc/xray/config.json 2>/dev/null || true
-            systemctl restart xray >/dev/null 2>&1
-    else
-        continue
-    fi
-fi
-
-        if [ -f "$BLOCK_FILE" ]; then
-            BLOCK_UNTIL=$(cat "$BLOCK_FILE")
-            BLOCK_TS=$(to_ts "$BLOCK_UNTIL")
-            NOW_TS=$(now_ts)
-
-            if [ "$BLOCK_TS" -gt "$NOW_TS" ]; then
-                NOTIFY_FILE="$STATE_DIR/$SERVICE-$USER.notified"
-                if [ ! -f "$NOTIFY_FILE" ]; then
-                    STRIKE_NOW=$(cat "$STRIKE_FILE" 2>/dev/null || echo 1)
-                    IPS_RETRY=$(cat "$STATE_DIR/$SERVICE-$USER.ips" 2>/dev/null || echo "unknown")
-                    send_log "$USER" "$SERVICE" "$LIMIT" "$((LIMIT + 1))" "$IPS_RETRY" "$STRIKE_NOW" "Block active" "$BLOCK_UNTIL"
-                    date +%s > "$NOTIFY_FILE"
-                fi
-                continue
-            else
-                rm -f "$BLOCK_FILE"
-                /usr/local/sbin/smilevpn/unblock-xray-user "$SERVICE" "$USER" >/dev/null 2>&1
-            fi
-        fi
-
-        # Count real client IP.
-        # For WS/gRPC behind Nginx, Xray sees 127.0.0.1.
-        # Use user-specific Nginx path when available, fallback to Xray log.
-        case "$SERVICE" in
-            trojan)
-                NGINX_USER_PAT="/trojan-ws/$USER"
-                ;;
-            vmess)
-                NGINX_USER_PAT="/vmess/$USER"
-                ;;
-            vless)
-                NGINX_USER_PAT="/vless/$USER"
-                ;;
-            shadowsocks)
-                NGINX_USER_PAT="/ss-ws/$USER"
-                ;;
-            trojango)
-                NGINX_USER_PAT="/trojango/$USER"
-                ;;
-            *)
-                NGINX_USER_PAT=""
-                ;;
-        esac
-
-        NGINX_IPS=""
-        if [ -n "$NGINX_USER_PAT" ] && [ -f /var/log/nginx/access.log ]; then
-            NGINX_IPS=$(tail -n 10000 /var/log/nginx/access.log 2>/dev/null \
-                | grep "$NGINX_USER_PAT" \
-                | awk '{print $1}' \
-                | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' \
-                | grep -vE '^(127\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.)' \
-                | sort -u)
-        fi
-
-        XRAY_IPS=$(tail -n 5000 "$LOG" 2>/dev/null \
-            | grep "email: $USER" \
-            | grep " accepted " \
-            | sed -n 's/.*from \(tcp:\)\?\([0-9][0-9.]*\):.*/\2/p' \
-            | grep -vE '^(127\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.)' \
-            | sort -u)
-
-        IPS=$(printf "%s\n%s\n" "$NGINX_IPS" "$XRAY_IPS" | sed '/^$/d' | sort -u)
-
-        COUNT=$(echo "$IPS" | sed '/^$/d' | wc -l)
-        IPS_COMMA=$(echo "$IPS" | paste -sd "," -)
-[ -z "$IPS_COMMA" ] && IPS_COMMA="unknown"
-        IPS_FILE="$STATE_DIR/$SERVICE-$USER.ips"
-        echo "$IPS_COMMA" > "$IPS_FILE"
-
-        if [ "$COUNT" -le "$LIMIT" ]; then
+        if ! is_user_exists "$user"; then
+            rm -f "$STATE_DIR/$service-$user."*
             continue
         fi
 
-        STRIKE=$(cat "$STRIKE_FILE" 2>/dev/null || echo 0)
-        STRIKE=$((STRIKE + 1))
-        echo "$STRIKE" > "$STRIKE_FILE"
+        strike_file="$STATE_DIR/$service-$user.strike"
+        block_file="$STATE_DIR/$service-$user.blocked_until"
+        ips_file="$STATE_DIR/$service-$user.ips"
+        cooldown_file="$STATE_DIR/$service-$user.cooldown"
+        now="$(date +%s)"
 
-        if [ "$STRIKE" -eq 1 ]; then
-            BLOCK_TIME=$(date -d "+1 hour" "+%Y-%m-%d %H:%M:%S")
-            echo "$BLOCK_TIME" > "$BLOCK_FILE"
-            echo "LIMIT HIT: $SERVICE $USER ($COUNT/$LIMIT) STRIKE 1 IPs: [$IPS_COMMA] -> BLOCK until $BLOCK_TIME"
-            send_log "$USER" "$SERVICE" "$LIMIT" "$COUNT" "$IPS_COMMA" 1 "Block 1 hour" "$BLOCK_TIME"
-            /usr/local/sbin/smilevpn/block-xray-user "$SERVICE" "$USER" >/dev/null 2>&1
-            cp /etc/xray/config.json /usr/local/etc/xray/config.json 2>/dev/null || true
-            systemctl restart xray >/dev/null 2>&1
-
-        elif [ "$STRIKE" -eq 2 ]; then
-            BLOCK_TIME=$(date -d "+3 hour" "+%Y-%m-%d %H:%M:%S")
-            echo "$BLOCK_TIME" > "$BLOCK_FILE"
-            echo "LIMIT HIT: $SERVICE $USER ($COUNT/$LIMIT) STRIKE 2 IPs: [$IPS_COMMA] -> BLOCK until $BLOCK_TIME"
-            send_log "$USER" "$SERVICE" "$LIMIT" "$COUNT" "$IPS_COMMA" 2 "Block 3 hours" "$BLOCK_TIME"
-            /usr/local/sbin/smilevpn/block-xray-user "$SERVICE" "$USER" >/dev/null 2>&1
-            cp /etc/xray/config.json /usr/local/etc/xray/config.json 2>/dev/null || true
-            systemctl restart xray >/dev/null 2>&1
-
-        else
-            echo "LIMIT HIT: $SERVICE $USER ($COUNT/$LIMIT) STRIKE 3 IPs: [$IPS_COMMA] -> SUSPENDED"
-            send_log "$USER" "$SERVICE" "$LIMIT" "$COUNT" "$IPS_COMMA" 3 "Suspended 24 hours" ""
-            /usr/local/sbin/smilevpn/block-xray-user "$SERVICE" "$USER" >/dev/null 2>&1
-            echo "$(date '+%Y-%m-%d %H:%M:%S')" > "$SUSPEND_FILE"
-            rm -f "$BLOCK_FILE"
-
-            case "$SERVICE" in
-                trojan)
-                    sed -i "/#tr $USER /,/^#tr /{/#tr $USER /d; /\"email\": \"$USER\"/d}" /etc/xray/config.json
-                    ;;
-                vmess)
-                    sed -i "/#vm $USER /,/^#vm /{/#vm $USER /d; /\"email\": \"$USER\"/d}" /etc/xray/config.json
-                    ;;
-                vless)
-                    sed -i "/#vl $USER /,/^#vl /{/#vl $USER /d; /\"email\": \"$USER\"/d}" /etc/xray/config.json
-                    ;;
-            esac
-
-            cp /etc/xray/config.json /usr/local/etc/xray/config.json 2>/dev/null || true
-            systemctl restart xray >/dev/null 2>&1
+        if [ -f "$block_file" ]; then
+            block_until="$(cat "$block_file" 2>/dev/null || echo 0)"
+            if [ "$block_until" -gt "$now" ] 2>/dev/null; then
+                continue
+            fi
+            rm -f "$block_file"
+            /usr/local/sbin/smilevpn/unblock-xray-user "$service" "$user" >/dev/null 2>&1 || true
+            echo $((now + 60)) > "$cooldown_file"
+            send_log "$user" "$service" "$limit" 0 "unknown" 0 "unblock" ""
+            continue
         fi
-    done
-}
 
-check_ssh() {
-    DIR="/etc/xray/sshx"
-    [ -d "$DIR" ] || return
-
-    for f in "$DIR"/*IP; do
-        [ -f "$f" ] || continue
-
-        USER=$(basename "$f" IP)
-        LIMIT=$(cat "$f" | tr -dc '0-9')
-
-        [ -z "$LIMIT" ] && LIMIT=0
-        [ "$LIMIT" = "0" ] && continue
-
-        SSH_SESSIONS=$(who | grep -w "$USER")
-        COUNT=$(echo "$SSH_SESSIONS" | sed '/^$/d' | wc -l)
-        SSH_IPS=$(echo "$SSH_SESSIONS" | awk '{print $5}' | tr -d '()' | sort -u | paste -sd "," -)
-
-        if [ "$COUNT" -gt "$LIMIT" ]; then
-            echo "LIMIT HIT: ssh $USER ($COUNT/$LIMIT) IPs: [$SSH_IPS] -> KILL SESSION"
-            send_log "$USER" "ssh" "$LIMIT" "$COUNT" "$SSH_IPS" 1 "Kill SSH session" ""
-            pkill -u "$USER" >/dev/null 2>&1
+        if [ -f "$cooldown_file" ]; then
+            local cd
+            cd="$(cat "$cooldown_file" 2>/dev/null || echo 0)"
+            if [ "$cd" -gt "$now" ] 2>/dev/null; then
+                echo "unknown" > "$ips_file"
+                continue
+            fi
+            rm -f "$cooldown_file"
         fi
+
+        local ips count ips_comma allow strike
+        ips="$(count_ips "$user" "$service" || true)"
+        count="$(echo "$ips" | sed '/^$/d' | wc -l)"
+        ips_comma="$(echo "$ips" | sed '/^$/d' | paste -sd "," -)"
+        [ -z "$ips_comma" ] && ips_comma="unknown"
+        echo "$ips_comma" > "$ips_file"
+
+        allow=$((limit + 3))
+        [ "$limit" -ge 5 ] && allow=$((limit + 5))
+
+        if [ "$count" -le "$allow" ]; then
+            echo 0 > "$strike_file"
+            continue
+        fi
+
+        strike="$(cat "$strike_file" 2>/dev/null || echo 0)"
+        strike=$((strike + 1))
+        echo "$strike" > "$strike_file"
+
+        if [ "$strike" -lt 3 ]; then
+            send_log "$user" "$service" "$limit" "$count" "$ips_comma" "$strike" "strike" ""
+            continue
+        fi
+
+        local seconds until_text
+        seconds=300
+        [ "$strike" -ge 5 ] && seconds=900
+        block_until=$((now + seconds))
+        until_text="$(date -d "@$block_until" '+%F %T' 2>/dev/null || echo "$block_until")"
+
+        echo "$block_until" > "$block_file"
+        /usr/local/sbin/smilevpn/block-xray-user "$service" "$user" >/dev/null 2>&1 || true
+        send_log "$user" "$service" "$limit" "$count" "$ips_comma" "$strike" "block" "$until_text"
     done
 }
 
@@ -238,36 +205,6 @@ check_xray "/etc/vmess" "vmess"
 check_xray "/etc/vless" "vless"
 check_xray "/etc/shadowsocks" "shadowsocks"
 check_xray "/etc/vlessreality" "vless-reality"
-check_xray "/etc/trojango" "trojango"
-check_ssh
 
-clean_orphan_limit_state() {
-    [ -d "$STATE_DIR" ] || return
-    [ -f /etc/xray/config.json ] || return
-
-    for f in "$STATE_DIR"/*.{strike,blocked_until,suspended,config.backup}; do
-        [ -e "$f" ] || continue
-
-        base="$(basename "$f")"
-        name="${base%.strike}"
-        name="${name%.blocked_until}"
-        name="${name%.suspended}"
-        name="${name%.config.backup}"
-
-        user="${name#*-}"
-        service="${name%%-*}"
-
-        [ -n "$user" ] || continue
-        [ -n "$service" ] || continue
-
-        if ! grep -q "\"email\": \"$user\"" /etc/xray/config.json; then
-            rm -f "$STATE_DIR/$service-$user.strike" \
-                  "$STATE_DIR/$service-$user.blocked_until" \
-                  "$STATE_DIR/$service-$user.suspended" \
-                  "$STATE_DIR/$service-$user.config.backup"
-            echo "AUTO CLEAN ORPHAN: $service $user old limit state removed"
-        fi
-    done
-}
-
-clean_orphan_limit_state
+# Trojango and ZiVPN intentionally skipped until real user-IP parser is verified.
+exit 0
