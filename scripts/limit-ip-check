@@ -236,42 +236,6 @@ check_xray "/etc/trojango" "trojango"
 
 
 # Trojango and ZiVPN intentionally skipped until real user-IP parser is verified.
-check_zivpn() {
-    local db="/etc/zivpn/users.db"
-    [ -f "$db" ] || return 0
-
-    while IFS=: read -r user limit; do
-        [ -n "$user" ] || continue
-        limit="$(echo "$limit" | tr -dc '0-9')"
-        [ -z "$limit" ] && limit=0
-        [ "$limit" = "0" ] && continue
-
-        local ips count ips_comma strike_file ips_file
-        strike_file="$STATE_DIR/zivpn-$user.strike"
-        ips_file="$STATE_DIR/zivpn-$user.ips"
-
-        ips="$(journalctl -u zivpn --since '90 seconds ago' --no-pager 2>/dev/null \
-            | sed -n 's/.*"addr": "\([0-9.]*\):.*/\1/p' \
-            | sort -u)"
-
-        groups="$(echo "$ips" | sed '/^$/d' | awk -F. '{print $1"."$2}' | sort -u)"
-        count="$(echo "$groups" | sed '/^$/d' | wc -l)"
-        ips_comma="$(echo "$ips" | sed '/^$/d' | paste -sd "," -)"
-        [ -z "$ips_comma" ] && ips_comma="unknown"
-
-        echo "$ips_comma" > "$ips_file"
-
-        if [ "$count" -le "$limit" ]; then
-            echo 0 > "$strike_file"
-            continue
-        fi
-
-        echo 1 > "$strike_file"
-        send_log "$user" "zivpn" "$limit" "$count" "$ips_comma" 1 "limit detected" ""
-    done < "$db"
-}
-
-check_zivpn
 
 check_zivpn() {
     local db="/etc/zivpn/users.db"
@@ -298,7 +262,8 @@ check_zivpn() {
             echo 0 > "$STATE_DIR/zivpn-$user.strike"
         else
             echo 1 > "$STATE_DIR/zivpn-$user.strike"
-            send_log "$user" "zivpn" "$limit" "$count" "$ips_comma" 1 "limit detected" ""
+            /usr/local/sbin/smilevpn/block-zivpn-user "$user" >/dev/null 2>&1 || true
+            send_log "$user" "zivpn" "$limit" "$count" "$ips_comma" 1 "block" ""
         fi
     done < "$db"
 }
