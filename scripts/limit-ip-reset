@@ -33,11 +33,7 @@ if [ "$SERVICE" = "ssh" ]; then
   usermod -U "$USER" >/dev/null 2>&1 || true
   pkill -u "$USER" >/dev/null 2>&1 || true
 else
-  if command -v unblock-xray-user >/dev/null 2>&1; then
-    unblock-xray-user "$SERVICE" "$USER" >/dev/null 2>&1 || true
-  elif [ -x /usr/local/sbin/smilevpn/unblock-xray-user ]; then
-    /usr/local/sbin/smilevpn/unblock-xray-user "$SERVICE" "$USER" >/dev/null 2>&1 || true
-  fi
+  /usr/local/sbin/smilevpn/unblock-xray-user "$SERVICE" "$USER" >/dev/null 2>&1 || true
 
   python3 - "$USER" <<'PYFIX'
 from pathlib import Path
@@ -51,6 +47,7 @@ out = []
 for line in lines:
     if f'"email": "{user}"' in line:
         line = line.replace('"password": "BLOCKED-', '"password": "')
+        line = line.replace('"id": "BLOCKED-', '"id": "')
     out.append(line)
 
 path.write_text("".join(out))

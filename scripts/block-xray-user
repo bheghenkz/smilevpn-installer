@@ -22,7 +22,7 @@ cp "$CONF" "$TMP"
 
 python3 <<PY
 from pathlib import Path
-import re, uuid, secrets, sys
+import re, secrets, sys
 
 user = "$USER"
 p = Path("$TMP")
@@ -38,7 +38,11 @@ for line in s.splitlines(True):
             oldpass = m.group(1)
             if not oldpass.startswith("BLOCKED-"):
                 new = re.sub(r'"password":\\s*"[^"]+"', '"password": "BLOCKED-' + oldpass + '"', new)
-        new = re.sub(r'"id":\s*"[^"]+"', '"id": "' + str(uuid.uuid4()) + '"', new)
+        m_id = re.search(r'"id":\s*"([^"]+)"', new)
+        if m_id:
+            oldid = m_id.group(1)
+            if not oldid.startswith("BLOCKED-"):
+                new = re.sub(r'"id":\s*"[^"]+"', '"id": "BLOCKED-' + oldid + '"', new)
         if new != line:
             changed += 1
         line = new
