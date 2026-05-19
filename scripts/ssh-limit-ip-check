@@ -202,7 +202,7 @@ for file in "$SSH_DIR"/*IP; do
 
     # UDP Custom mobile clients can briefly create multiple transient source IPs.
     # Allow small reconnect tolerance before triggering strike/block.
-    ALLOW_LIMIT=$((LIMIT + 2))
+    ALLOW_LIMIT="$LIMIT"
 
     if [ "$COUNT" -gt "$ALLOW_LIMIT" ]; then
         STRIKE=$((STRIKE + 1))

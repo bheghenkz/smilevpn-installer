@@ -198,8 +198,7 @@ check_xray() {
         [ -z "$ips_comma" ] && ips_comma="unknown"
         echo "$ips_comma" > "$ips_file"
 
-        allow=$((limit + 3))
-        [ "$limit" -ge 5 ] && allow=$((limit + 5))
+        allow="$limit"
 
         if [ "$count" -le "$allow" ]; then
             echo 0 > "$strike_file"
