@@ -18,6 +18,23 @@ BACKUP="$STATE/$SAFE_SERVICE-$SAFE_USER.config.backup"
 cp "$BACKUP" "$RCONF"
 chmod 644 "$RCONF"
 
+python3 - "$RCONF" "$USER" <<'PYFIX'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+user = sys.argv[2]
+
+lines = path.read_text().splitlines(True)
+out = []
+for line in lines:
+    if f'"email": "{user}"' in line:
+        line = line.replace('"password": "BLOCKED-', '"password": "')
+    out.append(line)
+
+path.write_text("".join(out))
+PYFIX
+
 if xray run -test -config "$RCONF" >/tmp/xray-unblock-test.log 2>&1; then
     cp "$BACKUP" "$CONF"
     chmod 644 "$CONF"

@@ -39,6 +39,23 @@ else
     /usr/local/sbin/smilevpn/unblock-xray-user "$SERVICE" "$USER" >/dev/null 2>&1 || true
   fi
 
+  python3 - "$USER" <<'PYFIX'
+from pathlib import Path
+import sys
+
+user = sys.argv[1]
+path = Path("/etc/xray/config.json")
+
+lines = path.read_text().splitlines(True)
+out = []
+for line in lines:
+    if f'"email": "{user}"' in line:
+        line = line.replace('"password": "BLOCKED-', '"password": "')
+    out.append(line)
+
+path.write_text("".join(out))
+PYFIX
+
   systemctl restart xray >/dev/null 2>&1 || true
 fi
 
