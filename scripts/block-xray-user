@@ -33,7 +33,11 @@ out = []
 for line in s.splitlines(True):
     if f'"email": "{user}"' in line:
         new = line
-        new = re.sub(r'"password":\s*"[^"]+"', '"password": "BLOCKED-' + secrets.token_hex(16) + '"', new)
+        m = re.search(r'"password":\\s*"([^"]+)"', new)
+        if m:
+            oldpass = m.group(1)
+            if not oldpass.startswith("BLOCKED-"):
+                new = re.sub(r'"password":\\s*"[^"]+"', '"password": "BLOCKED-' + oldpass + '"', new)
         new = re.sub(r'"id":\s*"[^"]+"', '"id": "' + str(uuid.uuid4()) + '"', new)
         if new != line:
             changed += 1
