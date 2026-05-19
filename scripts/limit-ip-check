@@ -193,7 +193,8 @@ check_xray() {
 
         local ips count ips_comma allow strike
         ips="$(count_ips "$user" "$service" || true)"
-        count="$(echo "$ips" | sed '/^$/d' | wc -l)"
+        groups="$(echo "$ips" | sed '/^$/d' | awk -F. '{print $1"."$2}' | sort -u)"
+        count="$(echo "$groups" | sed '/^$/d' | wc -l)"
         ips_comma="$(echo "$ips" | sed '/^$/d' | paste -sd "," -)"
         [ -z "$ips_comma" ] && ips_comma="unknown"
         echo "$ips_comma" > "$ips_file"
@@ -253,7 +254,8 @@ check_zivpn() {
             | sed -n 's/.*"addr": "\([0-9.]*\):.*/\1/p' \
             | sort -u)"
 
-        count="$(echo "$ips" | sed '/^$/d' | wc -l)"
+        groups="$(echo "$ips" | sed '/^$/d' | awk -F. '{print $1"."$2}' | sort -u)"
+        count="$(echo "$groups" | sed '/^$/d' | wc -l)"
         ips_comma="$(echo "$ips" | sed '/^$/d' | paste -sd "," -)"
         [ -z "$ips_comma" ] && ips_comma="unknown"
 
@@ -285,7 +287,8 @@ check_zivpn() {
             | sed -n 's/.*"addr": "\([0-9.]*\):.*/\1/p' \
             | sort -u)"
 
-        count="$(echo "$ips" | sed '/^$/d' | wc -l)"
+        groups="$(echo "$ips" | sed '/^$/d' | awk -F. '{print $1"."$2}' | sort -u)"
+        count="$(echo "$groups" | sed '/^$/d' | wc -l)"
         ips_comma="$(echo "$ips" | sed '/^$/d' | paste -sd "," -)"
         [ -z "$ips_comma" ] && ips_comma="unknown"
 

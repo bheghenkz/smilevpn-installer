@@ -195,7 +195,8 @@ for file in "$SSH_DIR"/*IP; do
     fi
 
     IPS="$(get_user_ips "$USERNAME")"
-    COUNT="$(echo "$IPS" | sed '/^$/d' | wc -l)"
+    GROUPS="$(echo "$IPS" | sed '/^$/d' | awk -F. '{print $1"."$2}' | sort -u)"
+    COUNT="$(echo "$GROUPS" | sed '/^$/d' | wc -l)"
     IPS_COMMA="$(echo "$IPS" | paste -sd "," -)"
     [ -z "$IPS_COMMA" ] && IPS_COMMA="unknown"
     echo "$IPS_COMMA" > "$IPS_FILE"
